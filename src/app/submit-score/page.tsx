@@ -198,7 +198,7 @@ function SubmitScoreForm() {
           <Button
             type="button"
             variant="outline"
-            className="w-full h-32 flex-col"
+            className="w-full h-32 flex-col relative"
             onClick={handleCameraClick}
           >
             {imagePreview ? (
