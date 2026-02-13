@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -162,6 +163,11 @@ export default function Home() {
             <p className="text-xs text-muted-foreground text-center w-full">By entering, you agree to play fair and have fun.</p>
           </CardFooter>
         </Card>
+      </div>
+      <div className="absolute bottom-4">
+          <Button variant="link" asChild>
+              <Link href="/admin/login">Admin Login</Link>
+          </Button>
       </div>
     </div>
   );

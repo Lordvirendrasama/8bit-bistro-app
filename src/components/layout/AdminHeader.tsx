@@ -63,9 +63,14 @@ export default function AdminHeader() {
             ))}
           </nav>
         </div>
-        <Button variant="ghost" size="sm" onClick={handleLogout}>
-          Logout
-        </Button>
+        <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+                <Link href="/dashboard">View App</Link>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              Logout
+            </Button>
+        </div>
       </div>
     </header>
   );
