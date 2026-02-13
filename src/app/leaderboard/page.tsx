@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   collection,
   query,
@@ -114,14 +115,31 @@ function LeaderboardPage() {
 
         {!loadingGames && games.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {games.map((game) => (
-              <div key={game.id}>
-                <h2 className="font-headline text-3xl sm:text-4xl text-center text-foreground mb-4 bg-primary/80 py-2 rounded-md shadow-lg">
-                  {game.name}
-                </h2>
-                <GameLeaderboard gameId={game.id} />
-              </div>
-            ))}
+            {games.map((game) => {
+              if (game.name.toUpperCase() === "SPACE INVADERS") {
+                return (
+                  <div key={game.id}>
+                    <Link href="/dashboard" className="block">
+                      <h2 className="font-headline text-3xl sm:text-4xl text-center text-foreground mb-4 bg-primary/80 py-2 rounded-md shadow-lg hover:bg-primary transition-colors cursor-pointer">
+                        {game.name}
+                      </h2>
+                    </Link>
+                    {/* This empty space keeps the layout consistent with other leaderboards. */}
+                    <p className="text-center text-transparent pt-10">
+                        &nbsp;
+                    </p>
+                  </div>
+                );
+              }
+              return (
+                <div key={game.id}>
+                  <h2 className="font-headline text-3xl sm:text-4xl text-center text-foreground mb-4 bg-primary/80 py-2 rounded-md shadow-lg">
+                    {game.name}
+                  </h2>
+                  <GameLeaderboard gameId={game.id} />
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
