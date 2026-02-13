@@ -79,8 +79,8 @@ type EnrichedScore = Score & { player?: Player; gameName?: string };
 
 export default function AdminDashboardPage() {
   const firestore = useFirestore();
-  const { games } = useGames();
-  const [scores, setScores] = useState<EnrichedScore[]>([]);
+  const { games, loading: gamesLoading } = useGames();
+  const [scores, setScores] = useState<Score[]>([]);
   const [players, setPlayers] = useState<Map<string, Player>>(new Map());
   const [loading, setLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState<{
@@ -113,6 +113,12 @@ export default function AdminDashboardPage() {
       setPlayers(playersMap);
     });
 
+    return () => unsubscribePlayers();
+  }, [firestore]);
+
+  useEffect(() => {
+    if (!firestore) return;
+    setLoading(true);
     const scoresQuery = query(
       collection(firestore, "scoreSubmissions"),
       orderBy("submittedAt", "desc")
@@ -122,25 +128,23 @@ export default function AdminDashboardPage() {
       snapshot.forEach((doc) => {
         scoresData.push({ id: doc.id, ...doc.data() } as Score);
       });
-
-      const enriched = scoresData.map((score) => ({
-        ...score,
-        player: players.get(score.playerId),
-        gameName: games.find(g => g.id === score.gameId)?.name ?? 'Unknown Game'
-      }));
-
-      setScores(enriched);
+      setScores(scoresData);
       setLoading(false);
     });
 
-    return () => {
-      unsubscribePlayers();
-      unsubscribeScores();
-    };
-  }, [firestore, players, games]);
+    return () => unsubscribeScores();
+  }, [firestore]);
+
+  const enrichedScores = useMemo(() => {
+    return scores.map((score) => ({
+      ...score,
+      player: players.get(score.playerId),
+      gameName: games.find((g) => g.id === score.gameId)?.name ?? "Unknown Game",
+    }));
+  }, [scores, players, games]);
 
   const sortedScores = useMemo(() => {
-    let sortableItems = [...scores];
+    let sortableItems = [...enrichedScores];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         const aValue = a[sortConfig.key];
@@ -153,13 +157,13 @@ export default function AdminDashboardPage() {
           if (aDate > bDate) return sortConfig.direction === "ascending" ? 1 : -1;
           return 0;
         }
-        
+
         if (sortConfig.key === "gameName") {
-            const aGameName = a.gameName ?? '';
-            const bGameName = b.gameName ?? '';
-            if (aGameName < bGameName) return sortConfig.direction === "ascending" ? -1 : 1;
-            if (aGameName > bGameName) return sortConfig.direction === "ascending" ? 1 : -1;
-            return 0;
+          const aGameName = a.gameName ?? "";
+          const bGameName = b.gameName ?? "";
+          if (aGameName < bGameName) return sortConfig.direction === "ascending" ? -1 : 1;
+          if (aGameName > bGameName) return sortConfig.direction === "ascending" ? 1 : -1;
+          return 0;
         }
 
         if (aValue < bValue)
@@ -170,7 +174,7 @@ export default function AdminDashboardPage() {
       });
     }
     return sortableItems;
-  }, [scores, sortConfig]);
+  }, [enrichedScores, sortConfig]);
 
   const requestSort = (key: keyof EnrichedScore) => {
     let direction: "ascending" | "descending" = "ascending";
@@ -245,7 +249,9 @@ export default function AdminDashboardPage() {
       return;
     }
     try {
-      await updateDoc(doc(firestore, "scoreSubmissions", selectedScore.id), { scoreValue });
+      await updateDoc(doc(firestore, "scoreSubmissions", selectedScore.id), {
+        scoreValue,
+      });
       toast({ title: "Success", description: "Score value updated." });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -290,12 +296,15 @@ export default function AdminDashboardPage() {
 
     try {
       if (!firestore) throw new Error("Firestore not available");
-      const scoreDoc = await getDoc(doc(firestore, "scoreSubmissions", score.id));
+      const scoreDoc = await getDoc(
+        doc(firestore, "scoreSubmissions", score.id)
+      );
       if (!scoreDoc.exists()) throw new Error("Score not found");
 
       const scoreData = scoreDoc.data();
       const { imageUrl, scoreValue, gameId } = scoreData;
-      const gameName = games.find(g => g.id === gameId)?.name ?? "Unknown Game";
+      const gameName =
+        games.find((g) => g.id === gameId)?.name ?? "Unknown Game";
 
       const response = await fetch(imageUrl);
       if (!response.ok) throw new Error("Failed to fetch image from storage.");
@@ -364,12 +373,8 @@ export default function AdminDashboardPage() {
     }
     if (!aiVerificationResult) return null;
 
-    const {
-      isVerified,
-      imageDetectedScore,
-      discrepancyReason,
-      confidence,
-    } = aiVerificationResult;
+    const { isVerified, imageDetectedScore, discrepancyReason, confidence } =
+      aiVerificationResult;
 
     return (
       <div className="space-y-4">
@@ -418,7 +423,7 @@ export default function AdminDashboardPage() {
     );
   };
 
-  if (loading) {
+  if (loading || gamesLoading) {
     return (
       <div className="p-8 flex justify-center items-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -538,7 +543,9 @@ export default function AdminDashboardPage() {
                                 Reject
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem onSelect={() => openEditModal(score)}>
+                            <DropdownMenuItem
+                              onSelect={() => openEditModal(score)}
+                            >
                               <Edit className="mr-2 h-4 w-4" />
                               Edit Score
                             </DropdownMenuItem>
