@@ -24,6 +24,7 @@ import {
   XCircle,
   Sparkles,
   Loader2,
+  PlusCircle,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -440,10 +441,19 @@ export default function AdminDashboardPage() {
         </p>
         <Card>
           <CardHeader>
-            <CardTitle>Score Submissions</CardTitle>
-            <CardDescription>
-              A total of {scores.length} scores submitted.
-            </CardDescription>
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <CardTitle>Score Submissions</CardTitle>
+                <CardDescription>
+                  A total of {scores.length} scores submitted.
+                </CardDescription>
+              </div>
+              <Button asChild>
+                <Link href="/admin/games">
+                  <PlusCircle className="mr-2 h-4 w-4" /> Manage Games
+                </Link>
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
