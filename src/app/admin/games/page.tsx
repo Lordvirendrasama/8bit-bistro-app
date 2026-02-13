@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, addDoc, deleteDoc, doc } from "firebase/firestore";
 import { Loader2, PlusCircle, Trash2 } from "lucide-react";
 
-import { db } from "@/lib/firebase";
+import { useFirestore } from "@/firebase";
 import type { Game } from "@/types";
-import { addGame, deleteGame } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 
 import {
@@ -39,6 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function AdminGamesPage() {
+  const firestore = useFirestore();
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [newGameName, setNewGameName] = useState("");
@@ -46,7 +46,8 @@ export default function AdminGamesPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const q = query(collection(db, "games"), orderBy("name"));
+    if (!firestore) return;
+    const q = query(collection(firestore, "games"), orderBy("name"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const gamesData: Game[] = [];
       snapshot.forEach((doc) => {
@@ -57,38 +58,45 @@ export default function AdminGamesPage() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [firestore]);
 
   const handleAddGame = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newGameName.trim() || isSubmitting) return;
+    if (!newGameName.trim() || isSubmitting || !firestore) return;
 
     setIsSubmitting(true);
-    const result = await addGame(newGameName.trim());
-
-    if (result.success) {
-      toast({ title: "Success", description: result.message });
-      setNewGameName("");
-    } else {
-      toast({
-        title: "Error",
-        description: result.message,
-        variant: "destructive",
-      });
+    
+    try {
+        await addDoc(collection(firestore, "games"), {
+            name: newGameName.trim(),
+            isActive: true,
+        });
+        toast({ title: "Success", description: `Game '${newGameName.trim()}' added.` });
+        setNewGameName("");
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        toast({
+            title: "Error",
+            description: `Failed to add game: ${message}`,
+            variant: "destructive",
+        });
     }
+
     setIsSubmitting(false);
   };
 
   const handleDeleteGame = async (gameId: string) => {
-    const result = await deleteGame(gameId);
-    if (result.success) {
-      toast({ title: "Success", description: result.message });
-    } else {
-      toast({
-        title: "Error",
-        description: result.message,
-        variant: "destructive",
-      });
+    if (!firestore) return;
+    try {
+        await deleteDoc(doc(firestore, "games", gameId));
+        toast({ title: "Success", description: "Game deleted." });
+    } catch(error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        toast({
+            title: "Error",
+            description: `Failed to delete game: ${message}`,
+            variant: "destructive",
+        });
     }
   };
 

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useFormState } from "react-dom";
+import { useState, useEffect, useRef, FormEvent } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Camera, Loader2, PartyPopper } from "lucide-react";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { collection, addDoc, serverTimestamp, getDoc, doc, query, where, orderBy, getDocs, Timestamp } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import Header from "@/components/layout/Header";
@@ -27,7 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { submitScore } from "@/app/actions";
 import { useGames } from "@/lib/hooks/use-games";
 import {
   Dialog,
@@ -36,67 +37,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-function SubmitButton() {
-  const [pending, setPending] = useState(false);
-  
-  // A trick to access form status
-  useEffect(() => {
-    const form = document.querySelector('form');
-    if (form) {
-      const handleFormSubmit = (e: SubmitEvent) => {
-        setPending(true);
-      };
-      form.addEventListener('submit', handleFormSubmit);
-      return () => form.removeEventListener('submit', handleFormSubmit);
-    }
-  }, []);
-
-  return (
-    <Button type="submit" className="w-full text-lg py-6" disabled={pending}>
-      {pending ? (
-        <>
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          Submitting...
-        </>
-      ) : (
-        "Submit Score"
-      )}
-    </Button>
-  );
-}
+import {
+  proactiveFraudDetectionForScoreSubmissions,
+  type ProactiveFraudDetectionInput,
+} from "@/ai/flows/proactive-fraud-detection-for-score-submissions-flow";
+import type { Player } from "@/types";
 
 function SubmitScoreForm() {
   const { user } = useAuth();
+  const firestore = useFirestore();
   const { games, loading: gamesLoading } = useGames();
   const { toast } = useToast();
   const router = useRouter();
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const initialState = { message: null, errors: {} };
-  const [state, dispatch] = useFormState(submitScore, initialState);
-  
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-
-  useEffect(() => {
-    if (state?.success) {
-        setShowSuccessModal(true);
-        // Reset form or redirect
-    } else if (state && !state.success && (state.message || state.errors)) {
-      const errorMessage = state.message || Object.values(state.errors).flat().join(' ');
-      toast({
-        variant: "destructive",
-        title: "Submission Failed",
-        description: errorMessage,
-      });
-    }
-  }, [state, toast]);
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      setImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
@@ -108,16 +73,124 @@ function SubmitScoreForm() {
   const handleCameraClick = () => {
     fileInputRef.current?.click();
   };
+  
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!user || !firestore || !imageFile) {
+        toast({
+            variant: "destructive",
+            title: "Submission Failed",
+            description: "Please fill all fields and provide an image.",
+        });
+        return;
+    }
+    
+    setIsSubmitting(true);
+    
+    const formData = new FormData(event.currentTarget);
+    const gameId = formData.get("gameId") as string;
+    const scoreValue = formData.get("scoreValue") as string;
+
+    if (!gameId || !scoreValue) {
+        toast({
+            variant: "destructive",
+            title: "Submission Failed",
+            description: "Game and score are required.",
+        });
+        setIsSubmitting(false);
+        return;
+    }
+
+    try {
+        const storage = getStorage(firestore.app);
+        const fileBuffer = Buffer.from(await imageFile.arrayBuffer());
+        const storageRef = ref(storage, `score_proofs/${user.uid}_${Date.now()}_${imageFile.name}`);
+        const snapshot = await uploadBytes(storageRef, fileBuffer, { contentType: imageFile.type });
+        const imageUrl = await getDownloadURL(snapshot.ref);
+
+        const playerDoc = await getDoc(doc(firestore, "players", user.uid));
+        if (!playerDoc.exists()) throw new Error("Player not found");
+        const playerData = playerDoc.data() as Omit<Player, "id">;
+        
+        const game = games.find(g => g.id === gameId);
+
+        const scoresQuery = query(
+          collection(firestore, "scoreSubmissions"),
+          where("playerId", "==", user.uid),
+          where("gameId", "==", gameId),
+          orderBy("submittedAt", "asc")
+        );
+        const scoresSnapshot = await getDocs(scoresQuery);
+        const previousScores = scoresSnapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            scoreValue: data.scoreValue,
+            timestamp: (data.submittedAt as Timestamp).toDate().toISOString(),
+          };
+        });
+
+        if (previousScores.length >= 5) {
+          toast({
+              success: false,
+              message: `Submission limit of 5 reached for ${game?.name}.`,
+          });
+          setIsSubmitting(false);
+          return;
+        }
+
+        const aiInput: ProactiveFraudDetectionInput = {
+          currentSubmission: {
+            playerId: user.uid,
+            gameName: game?.name ?? 'Unknown Game',
+            scoreValue: Number(scoreValue),
+            imageURL: imageUrl,
+            timestamp: new Date().toISOString(),
+          },
+          playerContext: {
+            name: playerData.name,
+            instagram: playerData.instagram,
+          },
+          previousScoresByPlayerForGame: previousScores,
+        };
+        const aiResult = await proactiveFraudDetectionForScoreSubmissions(aiInput);
+
+        const scoreData = {
+          playerId: user.uid,
+          gameId,
+          scoreValue: Number(scoreValue),
+          imageUrl,
+          status: "pending" as const,
+          submittedAt: serverTimestamp(),
+          isSuspicious: aiResult.isSuspicious,
+          suspicionReason: aiResult.reason,
+        };
+
+        await addDoc(collection(firestore, "scoreSubmissions"), scoreData);
+        
+        setShowSuccessModal(true);
+        formRef.current?.reset();
+        setImagePreview(null);
+        setImageFile(null);
+
+    } catch(error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        toast({
+            variant: "destructive",
+            title: "Submission Failed",
+            description: message,
+        });
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
 
   return (
     <>
-      <form action={dispatch} className="space-y-6">
-        <input type="hidden" name="playerId" value={user?.uid} />
-
+      <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <Label htmlFor="gameName">Game</Label>
-          <Select name="gameName" disabled={gamesLoading}>
-            <SelectTrigger id="gameName">
+          <Label htmlFor="gameId">Game</Label>
+          <Select name="gameId" disabled={gamesLoading}>
+            <SelectTrigger id="gameId">
               <SelectValue placeholder="Select a game..." />
             </SelectTrigger>
             <SelectContent>
@@ -127,16 +200,13 @@ function SubmitScoreForm() {
                 </SelectItem>
               ) : (
                 games.map((game) => (
-                  <SelectItem key={game.id} value={game.name}>
+                  <SelectItem key={game.id} value={game.id}>
                     {game.name}
                   </SelectItem>
                 ))
               )}
             </SelectContent>
           </Select>
-          {state?.errors?.gameName && (
-            <p className="text-destructive text-sm mt-1">{state.errors.gameName[0]}</p>
-          )}
         </div>
 
         <div>
@@ -146,10 +216,8 @@ function SubmitScoreForm() {
             name="scoreValue"
             type="number"
             placeholder="Enter your score"
+            required
           />
-           {state?.errors?.scoreValue && (
-            <p className="text-destructive text-sm mt-1">{state.errors.scoreValue[0]}</p>
-          )}
         </div>
 
         <div>
@@ -162,6 +230,7 @@ function SubmitScoreForm() {
             ref={fileInputRef}
             onChange={handleImageChange}
             className="hidden"
+            required
           />
           <Button
             type="button"
@@ -183,12 +252,18 @@ function SubmitScoreForm() {
               </div>
             )}
           </Button>
-          {state?.errors?.image && (
-            <p className="text-destructive text-sm mt-1">{state.errors.image[0]}</p>
-          )}
         </div>
 
-        <SubmitButton />
+        <Button type="submit" className="w-full text-lg py-6" disabled={isSubmitting}>
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Submitting...
+            </>
+          ) : (
+            "Submit Score"
+          )}
+        </Button>
       </form>
       
       <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>

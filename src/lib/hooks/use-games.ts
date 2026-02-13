@@ -1,15 +1,20 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useFirestore } from '@/firebase';
 import type { Game } from '@/types';
 
 export function useGames() {
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
+  const firestore = useFirestore();
 
   useEffect(() => {
-    const q = query(collection(db, 'games'), where('isActive', '==', true), orderBy('name'));
+    if (!firestore) {
+        setLoading(false);
+        return;
+    };
+    const q = query(collection(firestore, 'games'), where('isActive', '==', true), orderBy('name'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const gamesData: Game[] = [];
       querySnapshot.forEach((doc) => {
@@ -20,7 +25,7 @@ export function useGames() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [firestore]);
 
   return { games, loading };
 }

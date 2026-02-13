@@ -7,6 +7,8 @@ import {
   query,
   doc,
   getDoc,
+  updateDoc,
+  deleteDoc,
 } from "firebase/firestore";
 import Link from "next/link";
 import {
@@ -25,8 +27,9 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
-import { db } from "@/lib/firebase";
-import type { Score, Player, Game } from "@/types";
+import { useFirestore } from "@/firebase";
+import type { Score, Player, ScoreStatus } from "@/types";
+import { adminScoreImageVerificationAssistant } from "@/ai/flows/admin-score-image-verification-assistant";
 
 import {
   Card,
@@ -62,12 +65,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import {
-  updateScoreStatus,
-  updateScoreValue,
-  deleteScore,
-  verifyScoreAI,
-} from "@/app/actions";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Tooltip,
@@ -76,17 +73,20 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { AdminScoreImageVerificationAssistantOutput } from "@/ai/flows/admin-score-image-verification-assistant";
+import { useGames } from "@/lib/hooks/use-games";
 
-type EnrichedScore = Score & { player?: Player };
+type EnrichedScore = Score & { player?: Player; gameName?: string };
 
 export default function AdminDashboardPage() {
+  const firestore = useFirestore();
+  const { games } = useGames();
   const [scores, setScores] = useState<EnrichedScore[]>([]);
   const [players, setPlayers] = useState<Map<string, Player>>(new Map());
   const [loading, setLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState<{
     key: keyof EnrichedScore;
     direction: "ascending" | "descending";
-  } | null>({ key: "timestamp", direction: "descending" });
+  } | null>({ key: "submittedAt", direction: "descending" });
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -103,7 +103,8 @@ export default function AdminDashboardPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const playersQuery = query(collection(db, "players"));
+    if (!firestore) return;
+    const playersQuery = query(collection(firestore, "players"));
     const unsubscribePlayers = onSnapshot(playersQuery, (snapshot) => {
       const playersMap = new Map<string, Player>();
       snapshot.forEach((doc) => {
@@ -113,8 +114,8 @@ export default function AdminDashboardPage() {
     });
 
     const scoresQuery = query(
-      collection(db, "scores"),
-      orderBy("timestamp", "desc")
+      collection(firestore, "scoreSubmissions"),
+      orderBy("submittedAt", "desc")
     );
     const unsubscribeScores = onSnapshot(scoresQuery, (snapshot) => {
       const scoresData: Score[] = [];
@@ -125,6 +126,7 @@ export default function AdminDashboardPage() {
       const enriched = scoresData.map((score) => ({
         ...score,
         player: players.get(score.playerId),
+        gameName: games.find(g => g.id === score.gameId)?.name ?? 'Unknown Game'
       }));
 
       setScores(enriched);
@@ -135,7 +137,7 @@ export default function AdminDashboardPage() {
       unsubscribePlayers();
       unsubscribeScores();
     };
-  }, [players]);
+  }, [firestore, players, games]);
 
   const sortedScores = useMemo(() => {
     let sortableItems = [...scores];
@@ -144,12 +146,20 @@ export default function AdminDashboardPage() {
         const aValue = a[sortConfig.key];
         const bValue = b[sortConfig.key];
 
-        if (sortConfig.key === "timestamp") {
-          const aDate = a.timestamp?.toDate() ?? new Date(0);
-          const bDate = b.timestamp?.toDate() ?? new Date(0);
+        if (sortConfig.key === "submittedAt") {
+          const aDate = a.submittedAt?.toDate() ?? new Date(0);
+          const bDate = b.submittedAt?.toDate() ?? new Date(0);
           if (aDate < bDate) return sortConfig.direction === "ascending" ? -1 : 1;
           if (aDate > bDate) return sortConfig.direction === "ascending" ? 1 : -1;
           return 0;
+        }
+        
+        if (sortConfig.key === "gameName") {
+            const aGameName = a.gameName ?? '';
+            const bGameName = b.gameName ?? '';
+            if (aGameName < bGameName) return sortConfig.direction === "ascending" ? -1 : 1;
+            if (aGameName > bGameName) return sortConfig.direction === "ascending" ? 1 : -1;
+            return 0;
         }
 
         if (aValue < bValue)
@@ -198,12 +208,21 @@ export default function AdminDashboardPage() {
   );
 
   const handleStatusUpdate = async (id: string, status: ScoreStatus) => {
-    const result = await updateScoreStatus(id, status);
-    toast({
-      title: result.success ? "Success" : "Error",
-      description: result.message,
-      variant: result.success ? "default" : "destructive",
-    });
+    if (!firestore) return;
+    try {
+      await updateDoc(doc(firestore, "scoreSubmissions", id), { status });
+      toast({
+        title: "Success",
+        description: `Score status updated to ${status}.`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      toast({
+        title: "Error",
+        description: `Failed to update status: ${message}`,
+        variant: "destructive",
+      });
+    }
   };
 
   const openEditModal = (score: EnrichedScore) => {
@@ -213,7 +232,7 @@ export default function AdminDashboardPage() {
   };
 
   const handleEditSubmit = async () => {
-    if (!selectedScore || isSubmitting) return;
+    if (!selectedScore || isSubmitting || !firestore) return;
     setIsSubmitting(true);
     const scoreValue = parseInt(newScoreValue, 10);
     if (isNaN(scoreValue)) {
@@ -225,12 +244,17 @@ export default function AdminDashboardPage() {
       setIsSubmitting(false);
       return;
     }
-    const result = await updateScoreValue(selectedScore.id, scoreValue);
-    toast({
-      title: result.success ? "Success" : "Error",
-      description: result.message,
-      variant: result.success ? "default" : "destructive",
-    });
+    try {
+      await updateDoc(doc(firestore, "scoreSubmissions", selectedScore.id), { scoreValue });
+      toast({ title: "Success", description: "Score value updated." });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      toast({
+        title: "Error",
+        description: `Failed to update score: ${message}`,
+        variant: "destructive",
+      });
+    }
     setIsSubmitting(false);
     setEditModalOpen(false);
   };
@@ -241,14 +265,19 @@ export default function AdminDashboardPage() {
   };
 
   const handleDeleteSubmit = async () => {
-    if (!selectedScore || isSubmitting) return;
+    if (!selectedScore || isSubmitting || !firestore) return;
     setIsSubmitting(true);
-    const result = await deleteScore(selectedScore.id);
-    toast({
-      title: result.success ? "Success" : "Error",
-      description: result.message,
-      variant: result.success ? "default" : "destructive",
-    });
+    try {
+      await deleteDoc(doc(firestore, "scoreSubmissions", selectedScore.id));
+      toast({ title: "Success", description: "Score deleted." });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      toast({
+        title: "Error",
+        description: `Failed to delete score: ${message}`,
+        variant: "destructive",
+      });
+    }
     setIsSubmitting(false);
     setDeleteModalOpen(false);
   };
@@ -259,14 +288,35 @@ export default function AdminDashboardPage() {
     setIsVerifying(true);
     setAiVerificationResult(null);
 
-    const result = await verifyScoreAI(score.id);
+    try {
+      if (!firestore) throw new Error("Firestore not available");
+      const scoreDoc = await getDoc(doc(firestore, "scoreSubmissions", score.id));
+      if (!scoreDoc.exists()) throw new Error("Score not found");
 
-    if (result.success && result.data) {
-      setAiVerificationResult(result.data);
-    } else {
+      const scoreData = scoreDoc.data();
+      const { imageUrl, scoreValue, gameId } = scoreData;
+      const gameName = games.find(g => g.id === gameId)?.name ?? "Unknown Game";
+
+      const response = await fetch(imageUrl);
+      if (!response.ok) throw new Error("Failed to fetch image from storage.");
+
+      const imageBuffer = await response.arrayBuffer();
+      const imageBase64 = Buffer.from(imageBuffer).toString("base64");
+      const mimeType = response.headers.get("content-type") || "image/jpeg";
+      const photoDataUri = `data:${mimeType};base64,${imageBase64}`;
+
+      const aiResult = await adminScoreImageVerificationAssistant({
+        photoDataUri,
+        enteredScore: scoreValue,
+        gameName,
+      });
+
+      setAiVerificationResult(aiResult);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
       toast({
         title: "AI Verification Error",
-        description: result.message,
+        description: message,
         variant: "destructive",
       });
       setAiVerifyModalOpen(false);
@@ -399,7 +449,7 @@ export default function AdminDashboardPage() {
                     <SortableHeader label="Game" sortKey="gameName" />
                     <SortableHeader label="Score" sortKey="scoreValue" />
                     <SortableHeader label="Status" sortKey="status" />
-                    <SortableHeader label="Submitted" sortKey="timestamp" />
+                    <SortableHeader label="Submitted" sortKey="submittedAt" />
                     <TableHead>Image</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -443,8 +493,8 @@ export default function AdminDashboardPage() {
                       </TableCell>
                       <TableCell>{getStatusBadge(score.status)}</TableCell>
                       <TableCell>
-                        {score.timestamp
-                          ? formatDistanceToNow(score.timestamp.toDate(), {
+                        {score.submittedAt
+                          ? formatDistanceToNow(score.submittedAt.toDate(), {
                               addSuffix: true,
                             })
                           : "N/A"}
@@ -452,7 +502,7 @@ export default function AdminDashboardPage() {
                       <TableCell>
                         <Button variant="ghost" size="icon" asChild>
                           <Link
-                            href={score.imageURL}
+                            href={score.imageUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                           >

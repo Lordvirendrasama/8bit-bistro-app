@@ -2,15 +2,18 @@
 
 import Link from "next/link";
 import Logo from "@/components/Logo";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth as useUserAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/firebase";
 import { Button } from "@/components/ui/button";
-import { auth } from "@/lib/firebase";
 
 export default function Header() {
-  const { user } = useAuth();
+  const { user } = useUserAuth();
+  const auth = useAuth();
   
   const handleSignOut = () => {
-    auth.signOut();
+    if (auth) {
+        auth.signOut();
+    }
   }
 
   return (

@@ -13,10 +13,10 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { registerPlayer } from "@/app/actions";
 import { signInAnonymously } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import Logo from "@/components/Logo";
+import { useAuth as useFirebaseAuthInstance, useFirestore } from "@/firebase";
 
 const registrationSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -28,6 +28,8 @@ type RegistrationForm = z.infer<typeof registrationSchema>;
 
 export default function Home() {
   const { user, loading } = useAuth();
+  const auth = useFirebaseAuthInstance();
+  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,11 +50,28 @@ export default function Home() {
 
   const onSubmit = async (data: RegistrationForm) => {
     setIsSubmitting(true);
+    if (!auth || !firestore) {
+        toast({
+            variant: "destructive",
+            title: "Registration Failed",
+            description: "Firebase not initialized. Please try again.",
+        });
+        setIsSubmitting(false);
+        return;
+    }
+
     try {
       const userCredential = await signInAnonymously(auth);
       const uid = userCredential.user.uid;
       
-      await registerPlayer({ ...data, id: uid });
+      const playerData = {
+          name: data.name,
+          instagram: data.instagram,
+          groupSize: data.groupSize,
+          createdAt: serverTimestamp(),
+      }
+      
+      await setDoc(doc(firestore, "players", uid), playerData);
       
       toast({
         title: "Welcome to Pixel Podium!",
@@ -63,10 +82,14 @@ export default function Home() {
 
     } catch (error) {
       console.error("Registration failed:", error);
+      let message = "Could not complete registration. Please try again.";
+      if (error instanceof Error) {
+          message = error.message;
+      }
       toast({
         variant: "destructive",
         title: "Registration Failed",
-        description: "Could not complete registration. Please try again.",
+        description: message,
       });
       setIsSubmitting(false);
     }

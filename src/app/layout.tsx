@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Toaster } from "@/components/ui/toaster";
-import { AuthProvider } from "@/components/auth/AuthProvider";
+import { FirebaseClientProvider } from "@/firebase/client-provider";
 import "./globals.css";
 
 const APP_NAME = "Pixel Podium";
@@ -49,10 +49,10 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <AuthProvider>
+        <FirebaseClientProvider>
           <main className="min-h-screen">{children}</main>
           <Toaster />
-        </AuthProvider>
+        </FirebaseClientProvider>
       </body>
     </html>
   );

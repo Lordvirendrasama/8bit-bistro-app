@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   collection,
   query,
@@ -8,34 +8,22 @@ import {
   orderBy,
   limit,
   onSnapshot,
+  getDocs,
 } from "firebase/firestore";
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import Header from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { db } from "@/lib/firebase";
+import { useFirestore } from "@/firebase";
 import type { Game, Score, Player } from "@/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Crown } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useGames } from "@/lib/hooks/use-games";
 
 function Leaderboard() {
-  const [games, setGames] = useState<Game[]>([]);
-  const [loadingGames, setLoadingGames] = useState(true);
-
-  useEffect(() => {
-    const q = query(collection(db, "games"), where("isActive", "==", true));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const gamesData: Game[] = [];
-      querySnapshot.forEach((doc) => {
-        gamesData.push({ id: doc.id, ...doc.data() } as Game);
-      });
-      setGames(gamesData);
-      setLoadingGames(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
+  const { games, loading: loadingGames } = useGames();
+  const firestore = useFirestore();
 
   if (loadingGames) {
     return (
@@ -47,12 +35,14 @@ function Leaderboard() {
 
   if (games.length === 0) {
     return (
-        <Card>
-            <CardContent className="pt-6">
-                <p className="text-center text-muted-foreground">No active games for leaderboard.</p>
-            </CardContent>
-        </Card>
-    )
+      <Card>
+        <CardContent className="pt-6">
+          <p className="text-center text-muted-foreground">
+            No active games for leaderboard.
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
@@ -78,41 +68,48 @@ type EnrichedScore = Score & { player?: Player };
 function GameLeaderboard({ gameId }: { gameId: string }) {
   const [scores, setScores] = useState<EnrichedScore[]>([]);
   const [loadingScores, setLoadingScores] = useState(true);
+  const firestore = useFirestore();
 
   useEffect(() => {
+    if (!firestore) return;
+
     const scoresQuery = query(
-      collection(db, "scores"),
-      where("gameName", "==", gameId),
+      collection(firestore, "scoreSubmissions"),
+      where("gameId", "==", gameId),
       where("status", "==", "approved"),
       orderBy("scoreValue", "desc"),
       limit(10)
     );
 
     const unsubscribe = onSnapshot(scoresQuery, async (snapshot) => {
-      const scoresData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Score));
-      
-      const playerIds = [...new Set(scoresData.map(score => score.playerId))];
+      const scoresData = snapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as Score)
+      );
+
+      const playerIds = [...new Set(scoresData.map((score) => score.playerId))];
       const playersMap = new Map<string, Player>();
 
-      if(playerIds.length > 0) {
-        const playerChunks = [];
+      if (playerIds.length > 0) {
+        const playerChunks: string[][] = [];
         for (let i = 0; i < playerIds.length; i += 10) {
-            playerChunks.push(playerIds.slice(i, i + 10));
+          playerChunks.push(playerIds.slice(i, i + 10));
         }
-        
+
         for (const chunk of playerChunks) {
-            const playersQuery = query(collection(db, "players"), where('__name__', 'in', chunk));
-            const playerSnapshots = await onSnapshot(playersQuery, (playerSnapshot) => {
-                 playerSnapshot.docs.forEach(doc => {
-                    playersMap.set(doc.id, { id: doc.id, ...doc.data() } as Player);
-                });
-            });
+          const playersQuery = query(
+            collection(firestore, "players"),
+            where("__name__", "in", chunk)
+          );
+          const playerSnapshots = await getDocs(playersQuery);
+          playerSnapshots.docs.forEach((doc) => {
+            playersMap.set(doc.id, { id: doc.id, ...doc.data() } as Player);
+          });
         }
       }
 
-      const enrichedScores = scoresData.map(score => ({
+      const enrichedScores = scoresData.map((score) => ({
         ...score,
-        player: playersMap.get(score.playerId)
+        player: playersMap.get(score.playerId),
       }));
 
       setScores(enrichedScores);
@@ -120,7 +117,7 @@ function GameLeaderboard({ gameId }: { gameId: string }) {
     });
 
     return () => unsubscribe();
-  }, [gameId]);
+  }, [firestore, gameId]);
 
   if (loadingScores) {
     return (
@@ -141,21 +138,34 @@ function GameLeaderboard({ gameId }: { gameId: string }) {
   return (
     <div className="space-y-4">
       {scores.map((score, index) => (
-        <Card key={score.id} className={`p-4 flex items-center justify-between gap-4 ${index === 0 ? 'border-primary border-2 shadow-lg shadow-primary/20' : ''}`}>
+        <Card
+          key={score.id}
+          className={`p-4 flex items-center justify-between gap-4 ${
+            index === 0 ? "border-primary border-2 shadow-lg shadow-primary/20" : ""
+          }`}
+        >
           <div className="flex items-center gap-4">
-            <div className="text-2xl font-bold w-8 text-center text-muted-foreground">{index + 1}</div>
+            <div className="text-2xl font-bold w-8 text-center text-muted-foreground">
+              {index + 1}
+            </div>
             <Avatar>
-                <AvatarFallback>{score.player?.name?.charAt(0) ?? '?'}</AvatarFallback>
+              <AvatarFallback>
+                {score.player?.name?.charAt(0) ?? "?"}
+              </AvatarFallback>
             </Avatar>
             <div>
-                <div className="font-bold flex items-center gap-2">
-                    {score.player?.name ?? 'Anonymous'}
-                    {index === 0 && <Crown className="h-5 w-5 text-yellow-400" />}
-                </div>
-                <div className="text-sm text-muted-foreground">{score.player?.instagram}</div>
+              <div className="font-bold flex items-center gap-2">
+                {score.player?.name ?? "Anonymous"}
+                {index === 0 && <Crown className="h-5 w-5 text-yellow-400" />}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {score.player?.instagram}
+              </div>
             </div>
           </div>
-          <div className="text-xl md:text-2xl font-bold font-mono text-primary">{score.scoreValue.toLocaleString()}</div>
+          <div className="text-xl md:text-2xl font-bold font-mono text-primary">
+            {score.scoreValue.toLocaleString()}
+          </div>
         </Card>
       ))}
     </div>

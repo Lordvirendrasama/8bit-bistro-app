@@ -19,11 +19,11 @@ export type ScoreStatus = 'pending' | 'approved' | 'rejected';
 export type Score = {
   id: string;
   playerId: string;
-  gameName: string;
+  gameId: string;
   scoreValue: number;
-  imageURL: string;
+  imageUrl: string;
   status: ScoreStatus;
-  timestamp: Timestamp;
+  submittedAt: Timestamp;
   isSuspicious?: boolean;
   suspicionReason?: string;
 };
