@@ -7,6 +7,7 @@ import {
   getDoc,
   updateDoc,
   deleteDoc,
+  orderBy,
 } from "firebase/firestore";
 import Link from "next/link";
 import {
@@ -76,13 +77,13 @@ import { useGames } from "@/lib/hooks/use-games";
 
 type ScoreData = Omit<Score, "id">;
 
-export default function AdminDashboardPage() {
+export default function AdminMainPage() {
   const firestore = useFirestore();
   const { games, loading: gamesLoading } = useGames();
 
   const scoresQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, "scoreSubmissions"));
+    return query(collection(firestore, "scoreSubmissions"), orderBy("submittedAt", "desc"));
   }, [firestore]);
 
   const { data: scores, isLoading: loadingScores } =
@@ -91,7 +92,7 @@ export default function AdminDashboardPage() {
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Score;
     direction: "ascending" | "descending";
-  } | null>({ key: "submittedAt", direction: "descending" });
+  } | null>(null);
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -396,7 +397,7 @@ export default function AdminDashboardPage() {
   return (
     <TooltipProvider>
       <div className="p-4 md:p-8">
-        <h1 className="font-headline text-4xl mb-2">Admin Dashboard</h1>
+        <h1 className="font-headline text-4xl mb-2">Admin Main</h1>
         <p className="text-muted-foreground mb-6">
           Review, approve, or reject player scores.
         </p>

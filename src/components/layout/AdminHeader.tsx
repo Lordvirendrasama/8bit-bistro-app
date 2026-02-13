@@ -20,7 +20,7 @@ export default function AdminHeader() {
   };
 
   const navItems = [
-    { href: '/admin/dashboard', label: 'Dashboard' },
+    { href: '/admin/dashboard', label: 'Main' },
     { href: '/admin/users', label: 'Users' },
     { href: '/admin/games', label: 'Games' },
     { href: '/admin/settings', label: 'Settings' },
