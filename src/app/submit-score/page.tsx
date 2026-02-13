@@ -72,80 +72,103 @@ function SubmitScoreForm() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!user || !firestore || !imageFile) {
-        toast({
-            variant: "destructive",
-            title: "Submission Failed",
-            description: "Please fill all fields and provide an image.",
-        });
-        return;
+      toast({
+        variant: "destructive",
+        title: "Submission Failed",
+        description: "Please fill all fields and provide an image.",
+      });
+      return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     const formData = new FormData(event.currentTarget);
     const gameId = formData.get("gameId") as string;
     const scoreValue = formData.get("scoreValue") as string;
 
     if (!gameId || !scoreValue) {
-        toast({
-            variant: "destructive",
-            title: "Submission Failed",
-            description: "Game and score are required.",
-        });
-        setIsSubmitting(false);
-        return;
+      toast({
+        variant: "destructive",
+        title: "Submission Failed",
+        description: "Game and score are required.",
+      });
+      setIsSubmitting(false);
+      return;
     }
 
     try {
-        const game = games.find(g => g.id === gameId);
-        const scoresQuery = query(
-          collection(firestore, "scoreSubmissions"),
-          where("playerId", "==", user.uid),
-          where("gameId", "==", gameId)
-        );
-        const scoresSnapshot = await getDocs(scoresQuery);
-        if (scoresSnapshot.size >= 5) {
+      const game = games.find((g) => g.id === gameId);
+      const scoresQuery = query(
+        collection(firestore, "scoreSubmissions"),
+        where("playerId", "==", user.uid),
+        where("gameId", "==", gameId)
+      );
+      const scoresSnapshot = await getDocs(scoresQuery);
+      if (scoresSnapshot.size >= 5) {
+        toast({
+          variant: "destructive",
+          title: "Submission Limit Reached",
+          description: `You have reached the submission limit of 5 for ${game?.name}.`,
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Show success UI immediately to make it feel fast
+      setShowSuccessModal(true);
+      setIsSubmitting(false); // No longer submitting from the user's perspective
+      formRef.current?.reset();
+      setImagePreview(null);
+
+      // Keep the file for background upload and clear the state for the next submission
+      const fileToUpload = imageFile;
+      setImageFile(null);
+
+      // Perform the slow work in the background (fire and forget)
+      (async () => {
+        try {
+          const storage = getStorage(firestore.app);
+          const storageRef = ref(
+            storage,
+            `score_proofs/${user.uid}_${Date.now()}_${fileToUpload.name}`
+          );
+          const snapshot = await uploadBytes(storageRef, fileToUpload, {
+            contentType: fileToUpload.type,
+          });
+          const imageUrl = await getDownloadURL(snapshot.ref);
+
+          const scoreData = {
+            playerId: user.uid,
+            gameId,
+            scoreValue: Number(scoreValue),
+            imageUrl,
+            status: "pending" as const,
+            submittedAt: serverTimestamp(),
+          };
+
+          await addDoc(collection(firestore, "scoreSubmissions"), scoreData);
+          // On success, do nothing. The user already got a success message.
+        } catch (error) {
+          // If the background task fails, notify the user with a toast.
+          const message = error instanceof Error ? error.message : "Unknown error";
           toast({
             variant: "destructive",
-            title: "Submission Limit Reached",
-            description: `You have reached the submission limit of 5 for ${game?.name}.`,
+            title: "Background Submission Failed",
+            description: `Your score could not be saved. Please try again. Error: ${message}`,
           });
-          setIsSubmitting(false);
-          return;
         }
-
-        const storage = getStorage(firestore.app);
-        const storageRef = ref(storage, `score_proofs/${user.uid}_${Date.now()}_${imageFile.name}`);
-        const snapshot = await uploadBytes(storageRef, imageFile, { contentType: imageFile.type });
-        const imageUrl = await getDownloadURL(snapshot.ref);
-
-        const scoreData = {
-          playerId: user.uid,
-          gameId,
-          scoreValue: Number(scoreValue),
-          imageUrl,
-          status: "pending" as const,
-          submittedAt: serverTimestamp(),
-        };
-
-        await addDoc(collection(firestore, "scoreSubmissions"), scoreData);
-        
-        setShowSuccessModal(true);
-        formRef.current?.reset();
-        setImagePreview(null);
-        setImageFile(null);
-
-    } catch(error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
-        toast({
-            variant: "destructive",
-            title: "Submission Failed",
-            description: message,
-        });
-    } finally {
-        setIsSubmitting(false);
+      })();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      toast({
+        variant: "destructive",
+        title: "Submission Failed",
+        description: message,
+      });
+      setIsSubmitting(false); // Ensure submitting is false on error
     }
-  }
+  };
+
 
   return (
     <>
