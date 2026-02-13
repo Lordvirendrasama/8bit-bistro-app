@@ -12,9 +12,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['Inter', ...fontFamily.sans],
-        headline: ['Space Grotesk', ...fontFamily.sans],
-        code: ['monospace'],
+        body: ['VT323', ...fontFamily.mono],
+        headline: ['"Press Start 2P"', ...fontFamily.sans],
+        code: ['VT323', 'monospace'],
       },
       colors: {
         background: 'hsl(var(--background))',
