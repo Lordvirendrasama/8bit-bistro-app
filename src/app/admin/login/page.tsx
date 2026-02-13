@@ -17,6 +17,7 @@ export default function AdminLoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const [logoClicks, setLogoClicks] = useState(0);
 
   useEffect(() => {
     try {
@@ -30,6 +31,17 @@ export default function AdminLoginPage() {
       // If localStorage is not available, do nothing
     }
   }, [router]);
+
+  useEffect(() => {
+    if (logoClicks >= 5) {
+      router.push("/admin/login");
+      setLogoClicks(0);
+    }
+  }, [logoClicks, router]);
+
+  const handleLogoClick = () => {
+    setLogoClicks((prevClicks) => prevClicks + 1);
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +74,10 @@ export default function AdminLoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
         <div className="w-full max-w-sm">
-            <div className="mb-8 flex justify-center">
+            <div
+              className="mb-8 flex justify-center cursor-pointer"
+              onClick={handleLogoClick}
+            >
                 <Logo />
             </div>
             <Card>

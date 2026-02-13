@@ -1,15 +1,30 @@
 'use client';
+import { useState, useEffect } from "react";
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Logo from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useRouter } from 'next/navigation';
 import { ADMIN_PASSWORD_KEY } from '@/app/admin/layout';
 
 export default function AdminHeader() {
   const pathname = usePathname();
   const router = useRouter();
+  const [logoClicks, setLogoClicks] = useState(0);
+
+  useEffect(() => {
+    if (logoClicks >= 5) {
+      router.push("/admin/login");
+      setLogoClicks(0);
+    }
+  }, [logoClicks, router]);
+
+  const handleLogoClick = (e: React.MouseEvent) => {
+    setLogoClicks((prevClicks) => prevClicks + 1);
+    if (logoClicks + 1 >= 5) {
+      e.preventDefault();
+    }
+  };
 
   const handleLogout = () => {
     try {
@@ -30,7 +45,7 @@ export default function AdminHeader() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 max-w-7xl items-center justify-between">
         <div className="flex items-center gap-6">
-          <Link href="/admin/dashboard">
+          <Link href="/admin/dashboard" onClick={handleLogoClick}>
             <Logo />
           </Link>
           <nav className="hidden md:flex items-center gap-4">
