@@ -61,15 +61,6 @@ export default function Footer() {
             <Link href="/admin/dashboard">
                 <Logo />
             </Link>
-            <a href="https://www.instagram.com/kalakaricartel/" target="_blank" rel="noopener noreferrer">
-              <Image
-                src="/kalakari-logo.png"
-                alt="Kalakari Cartel Logo"
-                width={150}
-                height={150}
-                className="h-20 w-auto filter invert"
-              />
-            </a>
             <Image
               src="/272827436_301614021993701_2066672914547571489_n.jpg"
               alt="Sponsor Logo"
@@ -96,15 +87,6 @@ export default function Footer() {
         <Link href="/dashboard">
           <Logo />
         </Link>
-        <a href="https://www.instagram.com/kalakaricartel/" target="_blank" rel="noopener noreferrer">
-          <Image
-            src="/kalakari-logo.png"
-            alt="Kalakari Cartel Logo"
-            width={150}
-            height={150}
-            className="h-20 w-auto filter invert"
-          />
-        </a>
         <Image
           src="/272827436_301614021993701_2066672914547571489_n.jpg"
           alt="Sponsor Logo"
