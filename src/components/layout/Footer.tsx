@@ -70,6 +70,20 @@ export default function Footer() {
                 className="h-20 w-auto filter invert"
               />
             </a>
+            <Image
+              src="/272827436_301614021993701_2066672914547571489_n.jpg"
+              alt="Sponsor Logo"
+              width={150}
+              height={150}
+              className="h-20 w-auto"
+            />
+            <Image
+              src="/301485854_511554380976736_393831328011205696_n.jpg"
+              alt="Sponsor Logo"
+              width={150}
+              height={150}
+              className="h-20 w-auto"
+            />
         </div>
       </div>
     </footer>
@@ -91,6 +105,20 @@ export default function Footer() {
             className="h-20 w-auto filter invert"
           />
         </a>
+        <Image
+          src="/272827436_301614021993701_2066672914547571489_n.jpg"
+          alt="Sponsor Logo"
+          width={150}
+          height={150}
+          className="h-20 w-auto"
+        />
+        <Image
+          src="/301485854_511554380976736_393831328011205696_n.jpg"
+          alt="Sponsor Logo"
+          width={150}
+          height={150}
+          className="h-20 w-auto"
+        />
       </div>
     </footer>
   );
