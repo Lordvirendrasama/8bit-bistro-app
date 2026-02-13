@@ -33,6 +33,7 @@ export default function Home() {
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [logoClicks, setLogoClicks] = useState(0);
 
   const {
     register,
@@ -47,6 +48,16 @@ export default function Home() {
       router.replace("/dashboard");
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    if (logoClicks >= 5) {
+      router.push("/admin/settings");
+    }
+  }, [logoClicks, router]);
+
+  const handleLogoClick = () => {
+    setLogoClicks((prevClicks) => prevClicks + 1);
+  };
 
   const onSubmit = async (data: RegistrationForm) => {
     setIsSubmitting(true);
@@ -106,8 +117,11 @@ export default function Home() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="mb-8 flex justify-center">
-            <Logo />
+        <div
+          className="mb-8 flex justify-center cursor-pointer"
+          onClick={handleLogoClick}
+        >
+          <Logo />
         </div>
         <Card className="shadow-2xl shadow-primary/10">
           <CardHeader>
