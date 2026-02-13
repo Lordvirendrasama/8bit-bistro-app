@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import AdminHeader from "@/components/layout/AdminHeader";
+import { useUser } from "@/firebase";
 
-export const ADMIN_PASSWORD_KEY = "pixel-podium-admin-auth";
+// You can change this to your actual admin's email
+export const ADMIN_EMAIL = "viren@example.com";
 
 export default function AdminLayout({
   children,
@@ -14,38 +16,36 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { user, isUserLoading } = useUser();
   const [isVerified, setIsVerified] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // This effect should only run on the client
-    try {
-      const storedPass = localStorage.getItem(ADMIN_PASSWORD_KEY);
-      const adminPass = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
-
-      if (storedPass === adminPass) {
-        setIsVerified(true);
-      } else {
-        if (pathname !== "/admin/login") {
-          router.replace("/admin/login");
-        }
-      }
-    } catch (error) {
-      // If localStorage is not available or any other error occurs
-      if (pathname !== "/admin/login") {
-        router.replace("/admin/login");
-      }
-    } finally {
-      setLoading(false);
+    if (isUserLoading) {
+      return; // Wait until user state is loaded
     }
-  }, [router, pathname]);
 
-  // Allow login page to render without verification
+    // Allow login page to be accessed by anyone
+    if (pathname === "/admin/login") {
+      setIsVerified(true);
+      return;
+    }
+
+    // Check if there is a logged-in user and if they are the admin
+    if (user && user.email === ADMIN_EMAIL && !user.isAnonymous) {
+      setIsVerified(true);
+    } else {
+      // If not the admin, redirect to the login page
+      router.replace("/admin/login");
+    }
+  }, [user, isUserLoading, router, pathname]);
+
+  // Special handling to allow login page to render without the layout's auth check
   if (pathname === "/admin/login") {
     return <>{children}</>;
   }
 
-  if (loading || !isVerified) {
+  // Show a loading spinner while verifying auth state
+  if (isUserLoading || !isVerified) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -53,6 +53,7 @@ export default function AdminLayout({
     );
   }
 
+  // Render the admin layout for the verified admin user
   return (
     <>
       <AdminHeader />

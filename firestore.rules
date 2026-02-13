@@ -17,27 +17,14 @@
  * - /appConfig/event: A singleton document for global, publicly readable settings.
  *
  * Key Security Decisions:
- * - Admin Access: Administrative privileges are granted based on the existence of a
- *   document in the `/admins` collection, not its content. This is a simple and effective
- *   role-based access control (RBAC) pattern.
+ * - Admin Access: Administrative privileges are granted to a specific email address.
+ *   This is a simple role-based access control (RBAC) pattern.
  * - Public Data: The `/games` collection and the `/appConfig/event` document are
  *   publicly readable to allow any user or client to fetch essential app information.
  * - Mixed-Access for Submissions: The `/scoreSubmissions` collection is publicly listable
  *   to support the main leaderboard query (for approved scores). However, direct reads (`get`)
  *   of individual documents are restricted to the owner, admins, or if the score is publicly
  *   approved, ensuring pending submissions remain private.
- *
- * Denormalization for Authorization:
- * To create simpler and more performant rules, this ruleset relies on denormalization.
- * The `/scoreSubmissions` documents contain a `playerId` field. This avoids costly `get()`
- * calls to other collections during rule evaluation. Rules can instantly verify ownership
- * by checking `resource.data.playerId` against the user's auth UID.
- *
- * Structural Segregation:
- * Each collection has a distinct and uniform security purpose. `/players` is strictly
- * private and user-owned. `/games` is public-read/admin-write. This separation avoids
- * complex, conditional rules within a single collection, making the ruleset easier to
- * understand, maintain, and secure.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -57,11 +44,10 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // WARNING: This is insecure for a production app. It allows anyone to perform admin actions.
-      // This is set to true to simplify development in the prototype stage.
-      // In a real app, this should check for an authenticated admin user.
-      // return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-      return true;
+      // IMPORTANT: This rule grants admin access to a specific email address.
+      // For this to work, you MUST create a user in your Firebase Authentication
+      // console with the email 'viren@example.com'.
+      return isSignedIn() && request.auth.token.email == 'viren@example.com';
     }
 
     /**
@@ -70,9 +56,6 @@ service cloud.firestore {
      *   created and modified by the authenticated user themselves. Admins can read
      *   all player data.
      * @path /players/{playerId}
-     * @allow (get, list) An admin reading player data for dashboards or leaderboards.
-     * @deny (read) A user trying to read another player's profile document.
-     * @principle Restricts access to a user's own data tree (Ownership), with admin override.
      */
     match /players/{playerId} {
       allow get: if isOwner(playerId) || isAdmin();
@@ -87,15 +70,10 @@ service cloud.firestore {
      *   Manages the list of available retro games. This data is public for all users to read,
      *   but only administrators can create, update, or delete game entries.
      * @path /games/{gameId}
-     * @allow (get, list) Any user, signed in or not, reading the list of games.
-     * @deny (create) A regular player trying to add a new game to the list.
-     * @principle Public read access for general app data with admin-only write controls.
      */
     match /games/{gameId} {
       allow get, list: if true;
-      allow create: if isAdmin();
-      allow update: if isAdmin() && resource != null;
-      allow delete: if isAdmin() && resource != null;
+      allow create, update, delete: if isAdmin();
     }
 
     /**
@@ -104,16 +82,20 @@ service cloud.firestore {
      *   user. Reads are conditional: public if 'approved', otherwise private to the owner
      *   and admins. Updates (moderation) and deletions are restricted to admins.
      * @path /scoreSubmissions/{scoreSubmissionId}
-     * @allow (create) A signed-in player submitting their own score.
-     * @deny (update) A player trying to change the status of their own submission to 'approved'.
-     * @principle Enforces document ownership for creation and admin-only control for moderation.
      */
     match /scoreSubmissions/{scoreSubmissionId} {
-      allow get: if (resource.data.status == 'approved') || isOwner(resource.data.playerId) || isAdmin();
-      allow list: if true; // Publicly queryable for leaderboards (e.g., where status == 'approved').
+      // Admins have full read/write access.
+      allow read, update, delete: if isAdmin();
+
+      // Players can create their own pending submissions.
       allow create: if isSignedIn() && request.resource.data.playerId == request.auth.uid && request.resource.data.status == 'pending';
-      allow update: if isAdmin() && resource != null && request.resource.data.playerId == resource.data.playerId; // Admins can moderate, but not change owner.
-      allow delete: if isAdmin() && resource != null;
+
+      // Players can read their own scores. Anyone can read approved scores.
+      allow get: if isOwner(resource.data.playerId) || resource.data.status == 'approved';
+      
+      // Allow queries for the public leaderboard (approved scores) and player-specific views.
+      // Admin queries are covered by the `allow read` rule above.
+      allow list: if true;
     }
 
     /**
@@ -122,9 +104,6 @@ service cloud.firestore {
      *   privileges. This collection is locked down; only existing admins can view or
      *   manage the list of other admins.
      * @path /admins/{adminId}
-     * @allow (get) An admin viewing another admin's document.
-     * @deny (list) A regular user trying to list all administrators.
-     * @principle Existence-based authorization for database roles.
      */
     match /admins/{adminId} {
       allow get, list: if isAdmin();
@@ -136,9 +115,6 @@ service cloud.firestore {
      *   A singleton document for global application configuration. It is publicly readable
      *   so all clients can fetch settings, but only admins can modify it.
      * @path /appConfig/event
-     * @allow (get) Any user reading the global event configuration.
-     * @deny (update) A regular player attempting to change the event settings.
-     * @principle Public read for global settings with admin-only write controls.
      */
     match /appConfig/event {
       allow get: if true;
