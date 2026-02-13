@@ -1,19 +1,18 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import {
   collection,
   query,
   where,
   onSnapshot,
-  getDocs,
 } from "firebase/firestore";
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import Header from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFirestore } from "@/firebase";
-import type { Game, Score, Player } from "@/types";
+import type { Score } from "@/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Crown } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -61,10 +60,8 @@ function Leaderboard() {
   );
 }
 
-type EnrichedScore = Score & { player?: Player };
-
 function GameLeaderboard({ gameId }: { gameId: string }) {
-  const [scores, setScores] = useState<EnrichedScore[]>([]);
+  const [scores, setScores] = useState<Score[]>([]);
   const [loadingScores, setLoadingScores] = useState(true);
   const firestore = useFirestore();
 
@@ -87,33 +84,7 @@ function GameLeaderboard({ gameId }: { gameId: string }) {
         .sort((a, b) => b.scoreValue - a.scoreValue)
         .slice(0, 10);
 
-      const playerIds = [...new Set(topScores.map((score) => score.playerId))];
-      const playersMap = new Map<string, Player>();
-
-      if (playerIds.length > 0) {
-        const playerChunks: string[][] = [];
-        for (let i = 0; i < playerIds.length; i += 10) {
-          playerChunks.push(playerIds.slice(i, i + 10));
-        }
-
-        for (const chunk of playerChunks) {
-          const playersQuery = query(
-            collection(firestore, "players"),
-            where("__name__", "in", chunk)
-          );
-          const playerSnapshots = await getDocs(playersQuery);
-          playerSnapshots.docs.forEach((doc) => {
-            playersMap.set(doc.id, { id: doc.id, ...doc.data() } as Player);
-          });
-        }
-      }
-
-      const enrichedScores = topScores.map((score) => ({
-        ...score,
-        player: playersMap.get(score.playerId),
-      }));
-
-      setScores(enrichedScores);
+      setScores(topScores);
       setLoadingScores(false);
     });
 
@@ -151,16 +122,16 @@ function GameLeaderboard({ gameId }: { gameId: string }) {
             </div>
             <Avatar>
               <AvatarFallback>
-                {score.player?.name?.charAt(0) ?? "?"}
+                {score.playerName?.charAt(0) ?? "?"}
               </AvatarFallback>
             </Avatar>
             <div>
               <div className="font-bold flex items-center gap-2">
-                {score.player?.name ?? "Anonymous"}
+                {score.playerName ?? "Anonymous"}
                 {index === 0 && <Crown className="h-5 w-5 text-yellow-400" />}
               </div>
               <div className="text-sm text-muted-foreground">
-                {score.player?.instagram}
+                {score.playerInstagram}
               </div>
             </div>
           </div>

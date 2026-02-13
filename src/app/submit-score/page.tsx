@@ -7,7 +7,16 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Camera, Loader2, PartyPopper } from "lucide-react";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  query,
+  where,
+  getDocs,
+  doc,
+  getDoc,
+} from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
@@ -69,7 +78,7 @@ function SubmitScoreForm() {
   const handleCameraClick = () => {
     fileInputRef.current?.click();
   };
-  
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!user || !firestore || !imageFile) {
@@ -139,9 +148,18 @@ function SubmitScoreForm() {
           });
           const imageUrl = await getDownloadURL(snapshot.ref);
 
+          const playerDocRef = doc(firestore, "players", user.uid);
+          const playerDoc = await getDoc(playerDocRef);
+          const playerData = playerDoc.data();
+
+          const game = games.find((g) => g.id === gameId);
+
           const scoreData = {
             playerId: user.uid,
+            playerName: playerData?.name ?? "Unknown Player",
+            playerInstagram: playerData?.instagram ?? "",
             gameId,
+            gameName: game?.name ?? "Unknown Game",
             scoreValue: Number(scoreValue),
             imageUrl,
             status: "pending" as const,
@@ -152,7 +170,8 @@ function SubmitScoreForm() {
           // On success, do nothing. The user already got a success message.
         } catch (error) {
           // If the background task fails, notify the user with a toast.
-          const message = error instanceof Error ? error.message : "Unknown error";
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
           toast({
             variant: "destructive",
             title: "Background Submission Failed",
@@ -171,13 +190,17 @@ function SubmitScoreForm() {
     }
   };
 
-
   return (
     <>
       <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
         <div>
           <Label htmlFor="gameId">Game</Label>
-          <Select name="gameId" onValueChange={setSelectedGameId} value={selectedGameId} disabled={gamesLoading}>
+          <Select
+            name="gameId"
+            onValueChange={setSelectedGameId}
+            value={selectedGameId}
+            disabled={gamesLoading}
+          >
             <SelectTrigger id="gameId">
               <SelectValue placeholder="Select a game..." />
             </SelectTrigger>
@@ -242,7 +265,11 @@ function SubmitScoreForm() {
           </Button>
         </div>
 
-        <Button type="submit" className="w-full text-lg py-6" disabled={isSubmitting}>
+        <Button
+          type="submit"
+          className="w-full text-lg py-6"
+          disabled={isSubmitting}
+        >
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -253,17 +280,25 @@ function SubmitScoreForm() {
           )}
         </Button>
       </form>
-      
+
       <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
         <DialogContent onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader className="items-center text-center">
-            <PartyPopper className="h-16 w-16 text-primary animate-bounce"/>
-            <DialogTitle className="font-headline text-2xl">Score Submitted!</DialogTitle>
+            <PartyPopper className="h-16 w-16 text-primary animate-bounce" />
+            <DialogTitle className="font-headline text-2xl">
+              Score Submitted!
+            </DialogTitle>
             <DialogDescription>
-              Your score is pending approval. You can check the live leaderboard soon. Good luck!
+              Your score is pending approval. You can check the live leaderboard
+              soon. Good luck!
             </DialogDescription>
           </DialogHeader>
-          <Button className="w-full" onClick={() => router.push('/dashboard')}>Back to Dashboard</Button>
+          <Button
+            className="w-full"
+            onClick={() => router.push("/dashboard")}
+          >
+            Back to Dashboard
+          </Button>
         </DialogContent>
       </Dialog>
     </>
@@ -281,7 +316,8 @@ function SubmitScorePage() {
               Submit High Score
             </CardTitle>
             <CardDescription>
-              Select your game, enter your score, and take a photo of the screen.
+              Select your game, enter your score, and take a photo of the
+              screen.
             </CardDescription>
           </CardHeader>
           <CardContent>

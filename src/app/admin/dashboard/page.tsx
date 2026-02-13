@@ -7,7 +7,6 @@ import {
   getDoc,
   updateDoc,
   deleteDoc,
-  onSnapshot,
 } from "firebase/firestore";
 import Link from "next/link";
 import {
@@ -28,7 +27,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import type { Score, Player, ScoreStatus } from "@/types";
+import type { Score, ScoreStatus } from "@/types";
 import { adminScoreImageVerificationAssistant } from "@/ai/flows/admin-score-image-verification-assistant";
 
 import {
@@ -75,7 +74,6 @@ import {
 import type { AdminScoreImageVerificationAssistantOutput } from "@/ai/flows/admin-score-image-verification-assistant";
 import { useGames } from "@/lib/hooks/use-games";
 
-type EnrichedScore = Score & { player?: Player; gameName?: string };
 type ScoreData = Omit<Score, "id">;
 
 export default function AdminDashboardPage() {
@@ -90,18 +88,15 @@ export default function AdminDashboardPage() {
   const { data: scores, isLoading: loadingScores } =
     useCollection<ScoreData>(scoresQuery);
 
-  const [players, setPlayers] = useState<Map<string, Player>>(new Map());
   const [sortConfig, setSortConfig] = useState<{
-    key: keyof EnrichedScore;
+    key: keyof Score;
     direction: "ascending" | "descending";
   } | null>({ key: "submittedAt", direction: "descending" });
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [aiVerifyModalOpen, setAiVerifyModalOpen] = useState(false);
-  const [selectedScore, setSelectedScore] = useState<EnrichedScore | null>(
-    null
-  );
+  const [selectedScore, setSelectedScore] = useState<Score | null>(null);
   const [newScoreValue, setNewScoreValue] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiVerificationResult, setAiVerificationResult] =
@@ -110,30 +105,8 @@ export default function AdminDashboardPage() {
 
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!firestore) return;
-    const playersQuery = query(collection(firestore, "players"));
-    const unsubscribePlayers = onSnapshot(playersQuery, (snapshot) => {
-      const playersMap = new Map<string, Player>();
-      snapshot.forEach((doc) => {
-        playersMap.set(doc.id, { id: doc.id, ...doc.data() } as Player);
-      });
-      setPlayers(playersMap);
-    });
-
-    return () => unsubscribePlayers();
-  }, [firestore]);
-
-  const enrichedScores = useMemo(() => {
-    return (scores ?? []).map((score) => ({
-      ...score,
-      player: players.get(score.playerId),
-      gameName: games.find((g) => g.id === score.gameId)?.name ?? "Unknown Game",
-    }));
-  }, [scores, players, games]);
-
   const sortedScores = useMemo(() => {
-    let sortableItems = [...enrichedScores];
+    let sortableItems = [...(scores || [])];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         const aValue = a[sortConfig.key];
@@ -158,6 +131,9 @@ export default function AdminDashboardPage() {
             return sortConfig.direction === "ascending" ? 1 : -1;
           return 0;
         }
+        
+        if (aValue === undefined || aValue === null) return 1;
+        if (bValue === undefined || bValue === null) return -1;
 
         if (aValue < bValue)
           return sortConfig.direction === "ascending" ? -1 : 1;
@@ -167,9 +143,9 @@ export default function AdminDashboardPage() {
       });
     }
     return sortableItems;
-  }, [enrichedScores, sortConfig]);
+  }, [scores, sortConfig]);
 
-  const requestSort = (key: keyof EnrichedScore) => {
+  const requestSort = (key: keyof Score) => {
     let direction: "ascending" | "descending" = "ascending";
     if (
       sortConfig &&
@@ -186,7 +162,7 @@ export default function AdminDashboardPage() {
     sortKey,
   }: {
     label: string;
-    sortKey: keyof EnrichedScore;
+    sortKey: keyof Score;
   }) => (
     <TableHead
       className="cursor-pointer hover:bg-muted/50"
@@ -222,7 +198,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const openEditModal = (score: EnrichedScore) => {
+  const openEditModal = (score: Score) => {
     setSelectedScore(score);
     setNewScoreValue(String(score.scoreValue));
     setEditModalOpen(true);
@@ -258,7 +234,7 @@ export default function AdminDashboardPage() {
     setEditModalOpen(false);
   };
 
-  const openDeleteModal = (score: EnrichedScore) => {
+  const openDeleteModal = (score: Score) => {
     setSelectedScore(score);
     setDeleteModalOpen(true);
   };
@@ -281,7 +257,7 @@ export default function AdminDashboardPage() {
     setDeleteModalOpen(false);
   };
 
-  const openAiVerifyModal = async (score: EnrichedScore) => {
+  const openAiVerifyModal = async (score: Score) => {
     setSelectedScore(score);
     setAiVerifyModalOpen(true);
     setIsVerifying(true);
@@ -289,15 +265,8 @@ export default function AdminDashboardPage() {
 
     try {
       if (!firestore) throw new Error("Firestore not available");
-      const scoreDoc = await getDoc(
-        doc(firestore, "scoreSubmissions", score.id)
-      );
-      if (!scoreDoc.exists()) throw new Error("Score not found");
-
-      const scoreData = scoreDoc.data();
-      const { imageUrl, scoreValue, gameId } = scoreData;
-      const gameName =
-        games.find((g) => g.id === gameId)?.name ?? "Unknown Game";
+      
+      const { imageUrl, scoreValue, gameName } = score;
 
       const response = await fetch(imageUrl);
       if (!response.ok) throw new Error("Failed to fetch image from storage.");
@@ -468,17 +437,17 @@ export default function AdminDashboardPage() {
                         <div className="flex items-center gap-2">
                           <Avatar className="h-8 w-8">
                             <AvatarFallback>
-                              {score.player?.name
-                                ? score.player.name.charAt(0)
+                              {score.playerName
+                                ? score.playerName.charAt(0)
                                 : "P"}
                             </AvatarFallback>
                           </Avatar>
                           <div>
                             <div className="font-medium">
-                              {score.player?.name ?? "Unknown Player"}
+                              {score.playerName ?? "Unknown Player"}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {score.player?.instagram}
+                              {score.playerInstagram}
                             </div>
                           </div>
                           {score.isSuspicious && (
@@ -583,7 +552,7 @@ export default function AdminDashboardPage() {
               <DialogTitle>Edit Score</DialogTitle>
               <DialogDescription>
                 Update the score value for{" "}
-                {selectedScore?.player?.name ?? "this player"}.
+                {selectedScore?.playerName ?? "this player"}.
               </DialogDescription>
             </DialogHeader>
             <Input

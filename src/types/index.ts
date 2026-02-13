@@ -20,6 +20,9 @@ export type Score = {
   id: string;
   playerId: string;
   gameId: string;
+  playerName: string;
+  playerInstagram: string;
+  gameName: string;
   scoreValue: number;
   imageUrl: string;
   status: ScoreStatus;
