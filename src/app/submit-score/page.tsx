@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, FormEvent } from "react";
+import { useState, useRef, FormEvent, ChangeEvent } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
@@ -11,9 +11,6 @@ import {
   collection,
   addDoc,
   serverTimestamp,
-  query,
-  where,
-  getDocs,
   doc,
   getDoc,
 } from "firebase/firestore";
@@ -61,17 +58,89 @@ function SubmitScoreForm() {
 
   const [selectedGameId, setSelectedGameId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = document.createElement("img");
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 1280;
+          const MAX_HEIGHT = 720;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            return reject(new Error("Could not get canvas context"));
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const newFile = new File([blob], file.name, {
+                  type: "image/jpeg",
+                  lastModified: Date.now(),
+                });
+                resolve(newFile);
+              } else {
+                reject(new Error("Canvas to blob conversion failed"));
+              }
+            },
+            "image/jpeg",
+            0.8
+          );
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
+
+  const handleImageChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setIsProcessingImage(true);
+      setImagePreview(null);
+      try {
+        const compressedFile = await compressImage(file);
+        setImageFile(compressedFile);
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(compressedFile);
+      } catch (error) {
+        console.error("Image compression error:", error);
+        toast({
+          variant: "destructive",
+          title: "Image Error",
+          description: "Could not process image. Please try another one.",
+        });
+        setImageFile(null);
+      } finally {
+        setIsProcessingImage(false);
+      }
     }
   };
 
@@ -108,23 +177,7 @@ function SubmitScoreForm() {
     }
 
     try {
-      // 1. Check submission limit
-      const scoresQuery = query(
-        collection(firestore, "scoreSubmissions"),
-        where("playerId", "==", user.uid),
-        where("gameId", "==", gameId)
-      );
-      const scoresSnapshot = await getDocs(scoresQuery);
-      if (scoresSnapshot.size >= 5) {
-        toast({
-          variant: "destructive",
-          title: "Submission Limit Reached",
-          description: `You have reached the submission limit of 5 for ${game.name}.`,
-        });
-        return;
-      }
-
-      // 2. Upload image to Storage
+      // 1. Upload image to Storage
       const storage = getStorage(firestore.app);
       const storageRef = ref(
         storage,
@@ -135,12 +188,15 @@ function SubmitScoreForm() {
       });
       const imageUrl = await getDownloadURL(snapshot.ref);
 
-      // 3. Get player data
+      // 2. Get player data
       const playerDocRef = doc(firestore, "players", user.uid);
       const playerDoc = await getDoc(playerDocRef);
+      if (!playerDoc.exists()) {
+        throw new Error("Player data not found. Please register again.");
+      }
       const playerData = playerDoc.data();
 
-      // 4. Prepare score data
+      // 3. Prepare score data
       const scoreData = {
         playerId: user.uid,
         playerName: playerData?.name ?? "Unknown Player",
@@ -153,10 +209,10 @@ function SubmitScoreForm() {
         submittedAt: serverTimestamp(),
       };
 
-      // 5. Add score document to Firestore
+      // 4. Add score document to Firestore
       await addDoc(collection(firestore, "scoreSubmissions"), scoreData);
 
-      // 6. Success!
+      // 5. Success!
       setShowSuccessModal(true);
       formRef.current?.reset();
       setImagePreview(null);
@@ -174,7 +230,7 @@ function SubmitScoreForm() {
         description: message,
       });
     } finally {
-      // 7. Reset submitting state
+      // 6. Reset submitting state
       setIsSubmitting(false);
     }
   };
@@ -239,7 +295,7 @@ function SubmitScoreForm() {
             variant="outline"
             className="w-full h-32 flex-col relative"
             onClick={handleCameraClick}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isProcessingImage}
           >
             {imagePreview ? (
               <Image
@@ -248,6 +304,11 @@ function SubmitScoreForm() {
                 fill
                 className="object-contain rounded-md"
               />
+            ) : isProcessingImage ? (
+              <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-10 w-10 animate-spin" />
+                <span>Processing...</span>
+              </div>
             ) : (
               <div className="flex flex-col items-center gap-2 text-muted-foreground">
                 <Camera className="h-10 w-10" />
@@ -260,7 +321,7 @@ function SubmitScoreForm() {
         <Button
           type="submit"
           className="w-full text-lg py-6"
-          disabled={isSubmitting || !imageFile || !selectedGameId}
+          disabled={isSubmitting || isProcessingImage || !imageFile || !selectedGameId}
         >
           {isSubmitting ? (
             <>
