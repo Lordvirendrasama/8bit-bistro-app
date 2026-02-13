@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { signInAnonymously } from "firebase/auth";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import Logo from "@/components/Logo";
 import { useAuth as useFirebaseAuthInstance, useFirestore } from "@/firebase";
 
@@ -35,6 +35,7 @@ export default function Home() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [logoClicks, setLogoClicks] = useState(0);
+  const [isVerifying, setIsVerifying] = useState(true);
 
   const {
     register,
@@ -45,10 +46,39 @@ export default function Home() {
   });
 
   useEffect(() => {
-    if (!loading && user) {
-      router.replace("/dashboard");
+    // Show loader while auth state is loading
+    if (loading) {
+      setIsVerifying(true);
+      return;
     }
-  }, [user, loading, router]);
+    // If there's no user, show the registration form
+    if (!user) {
+      setIsVerifying(false);
+      return;
+    }
+    
+    // If there is a user, check if they have a player document
+    if (firestore) {
+      const checkPlayerDoc = async () => {
+        const playerDocRef = doc(firestore, "players", user.uid);
+        try {
+          const playerDoc = await getDoc(playerDocRef);
+          if (playerDoc.exists()) {
+            // If they have a player doc, send them to the dashboard
+            router.replace("/dashboard");
+          } else {
+            // If not, keep them on the registration page to create their profile
+            setIsVerifying(false);
+          }
+        } catch (error) {
+            console.error("Error checking player document:", error);
+            // On error, default to keeping them on the registration page
+            setIsVerifying(false);
+        }
+      };
+      checkPlayerDoc();
+    }
+  }, [user, loading, router, firestore]);
 
   useEffect(() => {
     if (logoClicks >= 5) {
@@ -74,6 +104,7 @@ export default function Home() {
     }
 
     try {
+      // This will sign in a new anonymous user or return the existing one.
       const userCredential = await signInAnonymously(auth);
       const uid = userCredential.user.uid;
       
@@ -109,7 +140,8 @@ export default function Home() {
     }
   };
 
-  if (loading || user) {
+  // While checking the user's status, show a loading spinner.
+  if (isVerifying) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -117,6 +149,7 @@ export default function Home() {
     );
   }
 
+  // Once verified, show the registration page.
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
