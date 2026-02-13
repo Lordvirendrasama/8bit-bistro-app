@@ -23,6 +23,7 @@ export default function Footer() {
     { href: '/admin/dashboard', label: 'Main' },
     { href: '/admin/users', label: 'Users' },
     { href: '/admin/games', label: 'Games' },
+    { href: '/admin/settings', label: 'Settings' },
   ];
   
   if (pathname === '/admin/login') {
@@ -57,8 +58,8 @@ export default function Footer() {
             Logout
             </Button>
         </div>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
-            <Link href="/admin/dashboard">
+        <div className="mt-4 w-full flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
+            <Link href="/dashboard">
                 <Logo />
             </Link>
             <Image
@@ -75,6 +76,15 @@ export default function Footer() {
               height={150}
               className="h-20 w-auto"
             />
+            <Link href="/admin/settings">
+              <Image
+                src="/kalakari-logo.png"
+                alt="Kalakari Cartel Logo"
+                width={150}
+                height={150}
+                className="h-20 w-auto invert"
+              />
+            </Link>
         </div>
       </div>
     </footer>
@@ -101,6 +111,15 @@ export default function Footer() {
           height={150}
           className="h-20 w-auto"
         />
+        <Link href="/admin/settings">
+          <Image
+            src="/kalakari-logo.png"
+            alt="Kalakari Cartel Logo"
+            width={150}
+            height={150}
+            className="h-20 w-auto invert"
+          />
+        </Link>
       </div>
     </footer>
   );
