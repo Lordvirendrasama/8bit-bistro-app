@@ -27,34 +27,36 @@ export default function AdminHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-24 max-w-7xl items-center justify-between">
-        <div className="flex items-center gap-6">
+      <div className="container flex flex-col items-center justify-center py-4">
+        <div className="relative flex w-full justify-center">
           <Link href="/admin/dashboard">
             <Logo />
           </Link>
-          <nav className="hidden md:flex items-center gap-4">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'text-sm font-medium transition-colors hover:text-primary',
-                  pathname === item.href ? 'text-primary' : 'text-muted-foreground'
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-        <div className="flex items-center gap-2">
+          <div className="absolute right-0 top-1/2 flex -translate-y-1/2 items-center gap-2">
             <Button variant="outline" size="sm" asChild>
-                <Link href="/dashboard">View App</Link>
+              <Link href="/dashboard">View App</Link>
             </Button>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               Logout
             </Button>
+          </div>
         </div>
+        <nav className="mt-4 flex items-center gap-4">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'text-sm font-medium transition-colors hover:text-primary',
+                pathname === item.href
+                  ? 'text-primary'
+                  : 'text-muted-foreground'
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
       </div>
     </header>
   );

@@ -5,10 +5,10 @@ export default function Logo() {
     <Image
       src="/THE 8 BIT BISTRO.png"
       alt="The 8Bit Bistro Logo"
-      width={275}
-      height={64}
+      width={330}
+      height={77}
       priority
-      className="h-20 w-auto"
+      className="h-24 w-auto"
     />
   );
 }
