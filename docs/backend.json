@@ -87,13 +87,6 @@
           "description": "URL to the image proof of the high score stored in Firebase Storage.",
           "format": "uri"
         },
-        "status": {
-          "type": "string",
-          "description": "The current approval status of the score submission. Can be 'pending', 'approved', or 'rejected'.",
-          "items": {
-            "type": "string"
-          }
-        },
         "submittedAt": {
           "type": "string",
           "description": "Timestamp when the score was submitted.",
@@ -106,7 +99,6 @@
         "gameId",
         "scoreValue",
         "imageUrl",
-        "status",
         "submittedAt"
       ]
     }

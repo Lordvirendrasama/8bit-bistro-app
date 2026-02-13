@@ -84,16 +84,15 @@ service cloud.firestore {
      */
     match /scoreSubmissions/{scoreSubmissionId} {
       // Admins have full read/write access.
-      allow read, update, delete: if isAdmin();
+      allow read, write: if isAdmin();
 
-      // Players can create their own pending submissions.
-      allow create: if isSignedIn() && request.resource.data.playerId == request.auth.uid && request.resource.data.status == 'pending';
+      // Players can create their own submissions.
+      allow create: if isSignedIn() && request.resource.data.playerId == request.auth.uid;
 
-      // Players can read their own scores. Anyone can read approved scores.
-      allow get: if isOwner(resource.data.playerId) || resource.data.status == 'approved';
+      // All scores are public.
+      allow get: if true;
       
-      // Allow queries for the public leaderboard (approved scores) and player-specific views.
-      // Admin queries are covered by the `allow read` rule above.
+      // Allow list queries for the leaderboard.
       allow list: if true;
     }
 

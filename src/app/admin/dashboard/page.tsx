@@ -12,15 +12,12 @@ import {
 import Link from "next/link";
 import {
   AlertCircle,
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
   Edit,
   FileImage,
-  HelpCircle,
   MoreVertical,
   Trash2,
-  XCircle,
   Sparkles,
   Loader2,
   PlusCircle,
@@ -28,7 +25,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import type { Score, ScoreStatus } from "@/types";
+import type { Score } from "@/types";
 import { adminScoreImageVerificationAssistant } from "@/ai/flows/admin-score-image-verification-assistant";
 
 import {
@@ -47,7 +44,6 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -184,24 +180,6 @@ export default function AdminMainPage() {
     </TableHead>
   );
 
-  const handleStatusUpdate = async (id: string, status: ScoreStatus) => {
-    if (!firestore) return;
-    try {
-      await updateDoc(doc(firestore, "scoreSubmissions", id), { status });
-      toast({
-        title: "Success",
-        description: `Score status updated to ${status}.`,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      toast({
-        title: "Error",
-        description: `Failed to update status: ${message}`,
-        variant: "destructive",
-      });
-    }
-  };
-
   const openEditModal = (score: Score) => {
     setSelectedScore(score);
     setNewScoreValue(String(score.scoreValue));
@@ -310,33 +288,6 @@ export default function AdminMainPage() {
     setIsVerifying(false);
   };
 
-  const getStatusBadge = (status: ScoreStatus) => {
-    switch (status) {
-      case "approved":
-        return (
-          <Badge variant="secondary" className="bg-green-600/80 text-white">
-            <CheckCircle2 className="mr-1 h-3 w-3" />
-            Approved
-          </Badge>
-        );
-      case "rejected":
-        return (
-          <Badge variant="destructive">
-            <XCircle className="mr-1 h-3 w-3" />
-            Rejected
-          </Badge>
-        );
-      case "pending":
-      default:
-        return (
-          <Badge variant="outline" className="text-amber-400 border-amber-400">
-            <HelpCircle className="mr-1 h-3 w-3" />
-            Pending
-          </Badge>
-        );
-    }
-  };
-
   const renderAiVerificationResult = () => {
     if (isVerifying) {
       return (
@@ -362,7 +313,7 @@ export default function AdminMainPage() {
         >
           <div className="flex items-center gap-2">
             {isVerified ? (
-              <CheckCircle2 className="h-5 w-5 text-green-400" />
+              <Sparkles className="h-5 w-5 text-green-400" />
             ) : (
               <AlertCircle className="h-5 w-5 text-destructive" />
             )}
@@ -439,7 +390,6 @@ export default function AdminMainPage() {
                     <TableHead>Player</TableHead>
                     <SortableHeader label="Game" sortKey="gameName" />
                     <SortableHeader label="Score" sortKey="scoreValue" />
-                    <SortableHeader label="Status" sortKey="status" />
                     <SortableHeader label="Submitted" sortKey="submittedAt" />
                     <TableHead>Image</TableHead>
                     <TableHead>Actions</TableHead>
@@ -482,7 +432,6 @@ export default function AdminMainPage() {
                       <TableCell className="font-mono">
                         {score.scoreValue.toLocaleString()}
                       </TableCell>
-                      <TableCell>{getStatusBadge(score.status)}</TableCell>
                       <TableCell>
                         {score.submittedAt
                           ? formatDistanceToNow(score.submittedAt.toDate(), {
@@ -522,26 +471,6 @@ export default function AdminMainPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
-                            {score.status !== "approved" && (
-                              <DropdownMenuItem
-                                onSelect={() =>
-                                  handleStatusUpdate(score.id, "approved")
-                                }
-                              >
-                                <CheckCircle2 className="mr-2 h-4 w-4" />
-                                Approve
-                              </DropdownMenuItem>
-                            )}
-                            {score.status !== "rejected" && (
-                              <DropdownMenuItem
-                                onSelect={() =>
-                                  handleStatusUpdate(score.id, "rejected")
-                                }
-                              >
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Reject
-                              </DropdownMenuItem>
-                            )}
                             <DropdownMenuItem
                               onSelect={() => openEditModal(score)}
                             >

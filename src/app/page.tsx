@@ -128,20 +128,6 @@ const uploadAndAnalyze = async ({
     }
   } catch (error) {
     console.error("Error in background submission task:", error);
-    try {
-      const scoreDocRef = doc(firestore, "scoreSubmissions", docId);
-      await updateDoc(scoreDocRef, {
-        status: "rejected",
-        suspicionReason:
-          "Background processing failed. Error: " +
-          (error instanceof Error ? error.message : "Unknown"),
-      });
-    } catch (updateError) {
-      console.error(
-        "Failed to update submission with error status:",
-        updateError
-      );
-    }
   }
 };
 
@@ -299,7 +285,6 @@ function HomePage() {
         gameId: selectedGameId,
         gameName: game.name,
         scoreValue: Number(scoreValue),
-        status: "pending" as const,
         submittedAt: serverTimestamp(),
       };
 
@@ -509,8 +494,8 @@ function HomePage() {
               Score Submitted!
             </DialogTitle>
             <DialogDescription>
-              The score is pending approval. You can submit another or check the
-              live leaderboard.
+              The score is now on the leaderboard. You can submit another or
+              check the live leaderboard.
             </DialogDescription>
           </DialogHeader>
           <Button

@@ -14,8 +14,6 @@ export type Game = {
   isActive: boolean;
 };
 
-export type ScoreStatus = 'pending' | 'approved' | 'rejected';
-
 export type Score = {
   id:string;
   playerId: string;
@@ -25,7 +23,6 @@ export type Score = {
   gameName: string;
   scoreValue: number;
   imageUrl?: string;
-  status: ScoreStatus;
   submittedAt: Timestamp;
   isSuspicious?: boolean;
   suspicionReason?: string;
