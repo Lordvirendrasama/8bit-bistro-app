@@ -67,12 +67,10 @@ export default function Footer() {
   }
 
   return (
-    <footer className="w-full py-8 mt-auto">
-      <div className="container flex justify-center">
-        <Link href="/dashboard">
-          <Logo />
-        </Link>
-      </div>
+    <footer className="w-full py-8 mt-auto flex justify-center items-center">
+      <Link href="/dashboard">
+        <Logo />
+      </Link>
     </footer>
   );
 }
