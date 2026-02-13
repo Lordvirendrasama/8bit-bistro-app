@@ -1,56 +1,63 @@
+@font-face {
+  font-family: 'Karmatic Arcade';
+  src: url('/ka1.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 221 68% 20%;
-    --foreground: 44 100% 92%;
-    --card: 221 68% 20%;
-    --card-foreground: 44 100% 92%;
-    --popover: 221 68% 20%;
-    --popover-foreground: 44 100% 92%;
-    --primary: 16 100% 56%;
+    --background: 300 100% 95%;
+    --foreground: 340 80% 30%;
+    --card: 300 100% 95%;
+    --card-foreground: 340 80% 30%;
+    --popover: 300 100% 95%;
+    --popover-foreground: 340 80% 30%;
+    --primary: 335 90% 70%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 43 99% 62%;
-    --secondary-foreground: 20 71% 45%;
-    --muted: 223 53% 51%;
-    --muted-foreground: 210 15% 75%;
-    --accent: 43 99% 62%;
-    --accent-foreground: 221 68% 20%;
+    --secondary: 210 100% 80%;
+    --secondary-foreground: 210 90% 30%;
+    --muted: 300 80% 90%;
+    --muted-foreground: 300 30% 65%;
+    --accent: 350 100% 88%;
+    --accent-foreground: 350 80% 40%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 16 100% 56%;
-    --input: 223 53% 51%;
-    --ring: 16 100% 56%;
+    --border: 340 80% 80%;
+    --input: 340 90% 92%;
+    --ring: 335 90% 70%;
     --chart-1: 300 100% 70%;
     --chart-2: 220 100% 65%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0rem;
+    --radius: 0.5rem;
   }
 
   .dark {
-    --background: 221 68% 20%;
-    --foreground: 44 100% 92%;
-    --card: 221 68% 20%;
-    --card-foreground: 44 100% 92%;
-    --popover: 221 68% 20%;
-    --popover-foreground: 44 100% 92%;
-    --primary: 16 100% 56%;
+    --background: 300 100% 95%;
+    --foreground: 340 80% 30%;
+    --card: 300 100% 95%;
+    --card-foreground: 340 80% 30%;
+    --popover: 300 100% 95%;
+    --popover-foreground: 340 80% 30%;
+    --primary: 335 90% 70%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 43 99% 62%;
-    --secondary-foreground: 20 71% 45%;
-    --muted: 223 53% 51%;
-    --muted-foreground: 210 15% 75%;
-    --accent: 43 99% 62%;
-    --accent-foreground: 221 68% 20%;
+    --secondary: 210 100% 80%;
+    --secondary-foreground: 210 90% 30%;
+    --muted: 300 80% 90%;
+    --muted-foreground: 300 30% 65%;
+    --accent: 350 100% 88%;
+    --accent-foreground: 350 80% 40%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 16 100% 56%;
-    --input: 223 53% 51%;
-    --ring: 16 100% 56%;
+    --border: 340 80% 80%;
+    --input: 340 90% 92%;
+    --ring: 335 90% 70%;
     --chart-1: 300 100% 70%;
     --chart-2: 220 100% 65%;
   }

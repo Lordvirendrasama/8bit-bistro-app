@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#FF66FF",
+  themeColor: "#F765B8",
 };
 
 export default function RootLayout({
@@ -44,7 +44,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap"
+          href="https://fonts.googleapis.com/css2?family=VT323&display=swap"
           rel="stylesheet"
         />
       </head>

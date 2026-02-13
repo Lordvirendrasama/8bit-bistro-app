@@ -12,8 +12,10 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useFirestore } from "@/firebase";
 import type { Score } from "@/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Crown, User } from "lucide-react";
+import { Loader2, Crown } from "lucide-react";
 import { useGames } from "@/lib/hooks/use-games";
+import { Card } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 function GameLeaderboard({ gameId }: { gameId: string }) {
   const [scores, setScores] = useState<Score[]>([]);
@@ -64,32 +66,24 @@ function GameLeaderboard({ gameId }: { gameId: string }) {
   return (
     <div className="space-y-4">
       {scores.map((score, index) => (
-        <div key={score.id} className="flex items-stretch gap-2 sm:gap-4">
-          <div className="border-4 border-primary p-1 bg-black">
-            <div className="bg-muted w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
-              <User
-                className="h-8 w-8 sm:h-12 sm:w-12 text-foreground"
-                strokeWidth={3}
-              />
+        <Card key={score.id} className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-4">
+            <Avatar>
+              <AvatarFallback>{score.playerName?.charAt(0) ?? 'A'}</AvatarFallback>
+            </Avatar>
+            <div className="flex items-center gap-2">
+              <div className="font-bold text-lg sm:text-xl">
+                {score.playerName ?? "Anonymous"}
+              </div>
+              {index === 0 && (
+                <Crown className="h-6 w-6 text-yellow-400" />
+              )}
             </div>
           </div>
-
-          <div className="flex-1 border-4 border-primary p-1 bg-black">
-            <div className="h-full flex justify-between items-center px-2 sm:px-4 bg-card">
-              <div className="flex items-center gap-2">
-                <div className="font-bold text-lg sm:text-2xl text-foreground">
-                  {score.playerName ?? "Anonymous"}
-                </div>
-                {index === 0 && (
-                  <Crown className="h-5 w-5 sm:h-6 sm:h-6 text-yellow-400" />
-                )}
-              </div>
-              <div className="text-xl sm:text-3xl font-bold font-mono text-secondary">
-                {score.scoreValue.toLocaleString()}
-              </div>
-            </div>
+          <div className="text-2xl font-bold font-mono text-primary">
+            {score.scoreValue.toLocaleString()}
           </div>
-        </div>
+        </Card>
       ))}
     </div>
   );
@@ -102,8 +96,7 @@ function LeaderboardPage() {
     <div className="min-h-screen pt-10 pb-10">
       <div className="container mx-auto max-w-4xl p-4">
         <h1
-          className="font-headline text-5xl sm:text-7xl text-center font-black text-secondary uppercase tracking-wider mb-2"
-          style={{ textShadow: "4px 4px 0px hsl(var(--secondary-foreground))" }}
+          className="font-headline text-5xl sm:text-7xl text-center font-black text-primary uppercase tracking-wider mb-2"
         >
           Leaderboard
         </h1>
@@ -122,7 +115,7 @@ function LeaderboardPage() {
 
         {!loadingGames && games.length > 0 && (
           <Tabs defaultValue={games[0]?.id} className="w-full mt-8">
-            <TabsList className="grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-3 bg-black/50 border-2 border-primary">
+            <TabsList className="grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-3 bg-card/50 border-2 border-primary">
               {games.map((game) => (
                 <TabsTrigger
                   key={game.id}

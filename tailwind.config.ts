@@ -13,7 +13,7 @@ export default {
     extend: {
       fontFamily: {
         body: ['VT323', ...fontFamily.mono],
-        headline: ['"Press Start 2P"', ...fontFamily.sans],
+        headline: ['"Karmatic Arcade"', ...fontFamily.sans],
         code: ['VT323', 'monospace'],
       },
       colors: {
