@@ -49,10 +49,13 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <FirebaseClientProvider>
-          <main className="min-h-screen">{children}</main>
-          <Toaster />
-        </FirebaseClientProvider>
+        <div className="fixed inset-0 bg-background/70 backdrop-blur-sm" />
+        <div className="relative">
+          <FirebaseClientProvider>
+            <main className="min-h-screen">{children}</main>
+            <Toaster />
+          </FirebaseClientProvider>
+        </div>
       </body>
     </html>
   );
