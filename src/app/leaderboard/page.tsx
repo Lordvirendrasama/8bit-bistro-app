@@ -11,7 +11,6 @@ import {
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useFirestore } from "@/firebase";
 import type { Score } from "@/types";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Crown } from "lucide-react";
 import { useGames } from "@/lib/hooks/use-games";
 import { Card } from "@/components/ui/card";
@@ -96,7 +95,7 @@ function LeaderboardPage() {
     <div className="min-h-screen pt-10 pb-10">
       <div className="container mx-auto max-w-4xl p-4">
         <h1
-          className="font-headline text-5xl sm:text-7xl text-center font-black text-primary uppercase tracking-wider mb-2"
+          className="font-headline text-5xl sm:text-7xl text-center font-black text-primary uppercase tracking-wider mb-8"
         >
           Leaderboard
         </h1>
@@ -114,24 +113,16 @@ function LeaderboardPage() {
         )}
 
         {!loadingGames && games.length > 0 && (
-          <Tabs defaultValue={games[0]?.id} className="w-full mt-8">
-            <TabsList className="grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-3 bg-card/50 border-2 border-primary">
-              {games.map((game) => (
-                <TabsTrigger
-                  key={game.id}
-                  value={game.id}
-                  className="font-headline text-lg data-[state=active]:bg-primary/80 data-[state=active]:text-primary-foreground"
-                >
-                  {game.name}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+          <div className="space-y-12">
             {games.map((game) => (
-              <TabsContent key={game.id} value={game.id} className="mt-6">
+              <div key={game.id}>
+                <h2 className="font-headline text-3xl sm:text-4xl text-center text-foreground mb-4 bg-primary/80 py-2 rounded-md shadow-lg">
+                  {game.name}
+                </h2>
                 <GameLeaderboard gameId={game.id} />
-              </TabsContent>
+              </div>
             ))}
-          </Tabs>
+          </div>
         )}
       </div>
     </div>
