@@ -50,6 +50,7 @@ function SubmitScoreForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
+  const [selectedGameId, setSelectedGameId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
@@ -83,7 +84,7 @@ function SubmitScoreForm() {
     setIsSubmitting(true);
 
     const formData = new FormData(event.currentTarget);
-    const gameId = formData.get("gameId") as string;
+    const gameId = selectedGameId;
     const scoreValue = formData.get("scoreValue") as string;
 
     if (!gameId || !scoreValue) {
@@ -119,6 +120,7 @@ function SubmitScoreForm() {
       setIsSubmitting(false); // No longer submitting from the user's perspective
       formRef.current?.reset();
       setImagePreview(null);
+      setSelectedGameId("");
 
       // Keep the file for background upload and clear the state for the next submission
       const fileToUpload = imageFile;
@@ -175,7 +177,7 @@ function SubmitScoreForm() {
       <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
         <div>
           <Label htmlFor="gameId">Game</Label>
-          <Select name="gameId" disabled={gamesLoading}>
+          <Select name="gameId" onValueChange={setSelectedGameId} value={selectedGameId} disabled={gamesLoading}>
             <SelectTrigger id="gameId">
               <SelectValue placeholder="Select a game..." />
             </SelectTrigger>
