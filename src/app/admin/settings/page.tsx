@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { doc, setDoc } from "firebase/firestore";
 import { Loader2 } from "lucide-react";
-import { useFirestore, useDoc } from "@/firebase";
+import { useFirestore, useDoc, useMemoFirebase } from "@/firebase";
 import type { AppConfig } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -16,7 +16,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function AdminSettingsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
-  const configRef = firestore ? doc(firestore, "appConfig", "event") : null;
+  const configRef = useMemoFirebase(
+    () => (firestore ? doc(firestore, "appConfig", "event") : null),
+    [firestore]
+  );
   const { data: appConfig, isLoading: isLoadingConfig } = useDoc<AppConfig>(configRef);
 
   const [playlistUrl, setPlaylistUrl] = useState("");

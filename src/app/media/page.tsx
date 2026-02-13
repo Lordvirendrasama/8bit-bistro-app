@@ -5,15 +5,17 @@ import { Loader2, Terminal } from "lucide-react";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import Header from "@/components/layout/Header";
 import { Card, CardContent } from "@/components/ui/card";
-import { useFirestore, useDoc } from "@/firebase";
+import { useFirestore, useDoc, useMemoFirebase } from "@/firebase";
 import type { AppConfig } from "@/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 function MediaPage() {
   const firestore = useFirestore();
-  const { data: appConfig, isLoading } = useDoc<AppConfig>(
-    firestore ? doc(firestore, "appConfig", "event") : null
+  const configRef = useMemoFirebase(
+    () => (firestore ? doc(firestore, "appConfig", "event") : null),
+    [firestore]
   );
+  const { data: appConfig, isLoading } = useDoc<AppConfig>(configRef);
 
   const videoPlaylistUrl = appConfig?.videoPlaylistUrl;
 
