@@ -119,7 +119,7 @@ export default function Home() {
       await setDoc(doc(firestore, "players", uid), playerData);
       
       toast({
-        title: "Welcome to Pixel Podium!",
+        title: "Welcome to The 8Bit Bistro!",
         description: "You're all set. Let the games begin!",
       });
 

@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 import "./globals.css";
 
-const APP_NAME = "Pixel Podium";
+const APP_NAME = "The 8Bit Bistro";
 const APP_DESCRIPTION =
   "Retro Arcade Event App for high scores and leaderboards.";
 
