@@ -59,8 +59,17 @@ export default function AdminSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Event Media</CardTitle>
-          <CardDescription>
-            Configure the YouTube playlist URL for the event media page. Remember to include autoplay, loop, and mute parameters for the best experience.
+          <CardDescription className="space-y-2">
+            <p>
+              Configure the YouTube playlist URL for the media page. It must be an <strong className="text-foreground">embed</strong> URL.
+            </p>
+            <ol className="list-decimal list-inside text-xs text-muted-foreground space-y-1">
+                <li>Go to the YouTube playlist you want to display.</li>
+                <li>Click the "Share" button.</li>
+                <li>Select the "Embed" option.</li>
+                <li>In the code that appears, copy the URL from the `src="..."` attribute.</li>
+                <li>Paste that URL here. It should look like `https://www.youtube.com/embed/videoseries?list=...`</li>
+            </ol>
           </CardDescription>
         </CardHeader>
         <CardContent>

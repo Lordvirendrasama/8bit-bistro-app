@@ -3,7 +3,6 @@
 import { doc } from "firebase/firestore";
 import { Loader2, Terminal } from "lucide-react";
 import { AuthGuard } from "@/components/auth/AuthGuard";
-import Header from "@/components/layout/Header";
 import { Card, CardContent } from "@/components/ui/card";
 import { useFirestore, useDoc, useMemoFirebase } from "@/firebase";
 import type { AppConfig } from "@/types";
@@ -20,10 +19,11 @@ function MediaPage() {
   const videoPlaylistUrl = appConfig?.videoPlaylistUrl;
 
   return (
-    <>
-      <Header />
+    <div className="min-h-screen pt-10 pb-10">
       <div className="container mx-auto max-w-4xl p-4">
-        <h1 className="font-headline text-3xl mb-4">Event Media</h1>
+        <h1 className="font-headline text-5xl sm:text-7xl text-center font-black text-primary uppercase tracking-wider mb-8">
+          Event Media
+        </h1>
         <Card className="overflow-hidden shadow-2xl shadow-primary/10">
           <CardContent className="p-0">
             <div className="aspect-video w-full bg-black flex items-center justify-center">
@@ -53,7 +53,7 @@ function MediaPage() {
           </CardContent>
         </Card>
       </div>
-    </>
+    </div>
   );
 }
 
