@@ -57,7 +57,7 @@ export default function Footer() {
             Logout
             </Button>
         </div>
-        <div className="mt-4 flex items-center justify-center gap-8">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
             <Link href="/admin/dashboard">
                 <Logo />
             </Link>
@@ -83,7 +83,7 @@ export default function Footer() {
 
   return (
     <footer className="w-full py-8 mt-auto">
-      <div className="container flex items-center justify-center gap-x-12">
+      <div className="container flex flex-wrap items-center justify-center gap-x-12 gap-y-6">
         <Link href="/dashboard">
           <Logo />
         </Link>
