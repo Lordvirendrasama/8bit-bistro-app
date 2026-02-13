@@ -83,7 +83,7 @@ export default function Footer() {
 
   return (
     <footer className="w-full py-8 mt-auto">
-      <div className="container flex flex-wrap items-center justify-center gap-x-12 gap-y-6">
+      <div className="w-full flex flex-wrap items-center justify-center gap-x-12 gap-y-6 px-4">
         <Link href="/dashboard">
           <Logo />
         </Link>
