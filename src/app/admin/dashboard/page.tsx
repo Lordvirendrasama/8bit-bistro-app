@@ -2,12 +2,12 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   collection,
-  onSnapshot,
   query,
   doc,
   getDoc,
   updateDoc,
   deleteDoc,
+  onSnapshot,
 } from "firebase/firestore";
 import Link from "next/link";
 import {
@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
-import { useFirestore } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import type { Score, Player, ScoreStatus } from "@/types";
 import { adminScoreImageVerificationAssistant } from "@/ai/flows/admin-score-image-verification-assistant";
 
@@ -76,13 +76,21 @@ import type { AdminScoreImageVerificationAssistantOutput } from "@/ai/flows/admi
 import { useGames } from "@/lib/hooks/use-games";
 
 type EnrichedScore = Score & { player?: Player; gameName?: string };
+type ScoreData = Omit<Score, "id">;
 
 export default function AdminDashboardPage() {
   const firestore = useFirestore();
   const { games, loading: gamesLoading } = useGames();
-  const [scores, setScores] = useState<Score[]>([]);
+
+  const scoresQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "scoreSubmissions"));
+  }, [firestore]);
+
+  const { data: scores, isLoading: loadingScores } =
+    useCollection<ScoreData>(scoresQuery);
+
   const [players, setPlayers] = useState<Map<string, Player>>(new Map());
-  const [loading, setLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState<{
     key: keyof EnrichedScore;
     direction: "ascending" | "descending";
@@ -116,26 +124,8 @@ export default function AdminDashboardPage() {
     return () => unsubscribePlayers();
   }, [firestore]);
 
-  useEffect(() => {
-    if (!firestore) return;
-    setLoading(true);
-    const scoresQuery = query(
-      collection(firestore, "scoreSubmissions")
-    );
-    const unsubscribeScores = onSnapshot(scoresQuery, (snapshot) => {
-      const scoresData: Score[] = [];
-      snapshot.forEach((doc) => {
-        scoresData.push({ id: doc.id, ...doc.data() } as Score);
-      });
-      setScores(scoresData);
-      setLoading(false);
-    });
-
-    return () => unsubscribeScores();
-  }, [firestore]);
-
   const enrichedScores = useMemo(() => {
-    return scores.map((score) => ({
+    return (scores ?? []).map((score) => ({
       ...score,
       player: players.get(score.playerId),
       gameName: games.find((g) => g.id === score.gameId)?.name ?? "Unknown Game",
@@ -152,16 +142,20 @@ export default function AdminDashboardPage() {
         if (sortConfig.key === "submittedAt") {
           const aDate = a.submittedAt?.toDate() ?? new Date(0);
           const bDate = b.submittedAt?.toDate() ?? new Date(0);
-          if (aDate < bDate) return sortConfig.direction === "ascending" ? -1 : 1;
-          if (aDate > bDate) return sortConfig.direction === "ascending" ? 1 : -1;
+          if (aDate < bDate)
+            return sortConfig.direction === "ascending" ? -1 : 1;
+          if (aDate > bDate)
+            return sortConfig.direction === "ascending" ? 1 : -1;
           return 0;
         }
 
         if (sortConfig.key === "gameName") {
           const aGameName = a.gameName ?? "";
           const bGameName = b.gameName ?? "";
-          if (aGameName < bGameName) return sortConfig.direction === "ascending" ? -1 : 1;
-          if (aGameName > bGameName) return sortConfig.direction === "ascending" ? 1 : -1;
+          if (aGameName < bGameName)
+            return sortConfig.direction === "ascending" ? -1 : 1;
+          if (aGameName > bGameName)
+            return sortConfig.direction === "ascending" ? 1 : -1;
           return 0;
         }
 
@@ -422,7 +416,7 @@ export default function AdminDashboardPage() {
     );
   };
 
-  if (loading || gamesLoading) {
+  if (loadingScores || gamesLoading) {
     return (
       <div className="p-8 flex justify-center items-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -443,7 +437,7 @@ export default function AdminDashboardPage() {
               <div>
                 <CardTitle>Score Submissions</CardTitle>
                 <CardDescription>
-                  A total of {scores.length} scores submitted.
+                  A total of {scores?.length ?? 0} scores submitted.
                 </CardDescription>
               </div>
               <Button asChild>
