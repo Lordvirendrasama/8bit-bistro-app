@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/firebase';
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 
 export default function Footer() {
   const pathname = usePathname();
@@ -67,10 +68,19 @@ export default function Footer() {
             Logout
             </Button>
         </div>
-        <div className="mt-4">
+        <div className="mt-4 flex items-center justify-center gap-8">
             <Link href="/admin/dashboard">
                 <Logo />
             </Link>
+            <a href="https://www.instagram.com/kalakaricartel/" target="_blank" rel="noopener noreferrer">
+              <Image
+                src="/kalakari-logo.png"
+                alt="Kalakari Cartel Logo"
+                width={150}
+                height={150}
+                className="h-20 w-auto filter invert"
+              />
+            </a>
         </div>
       </div>
     </footer>
@@ -78,10 +88,21 @@ export default function Footer() {
   }
 
   return (
-    <footer className="w-full py-8 mt-auto flex justify-center items-center">
-      <Link href="/dashboard">
-        <Logo />
-      </Link>
+    <footer className="w-full py-8 mt-auto">
+      <div className="container flex items-center justify-center gap-x-12">
+        <Link href="/dashboard">
+          <Logo />
+        </Link>
+        <a href="https://www.instagram.com/kalakaricartel/" target="_blank" rel="noopener noreferrer">
+          <Image
+            src="/kalakari-logo.png"
+            alt="Kalakari Cartel Logo"
+            width={150}
+            height={150}
+            className="h-20 w-auto filter invert"
+          />
+        </a>
+      </div>
     </footer>
   );
 }
