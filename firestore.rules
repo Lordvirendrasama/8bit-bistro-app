@@ -67,15 +67,16 @@ service cloud.firestore {
     /**
      * @description
      *   Manages player profiles. Each player's document is private and can only be
-     *   created and modified by the authenticated user themselves.
+     *   created and modified by the authenticated user themselves. Admins can read
+     *   all player data.
      * @path /players/{playerId}
-     * @allow (create) An authenticated user creating their own player profile document.
+     * @allow (get, list) An admin reading player data for dashboards or leaderboards.
      * @deny (read) A user trying to read another player's profile document.
-     * @principle Restricts access to a user's own data tree (Ownership).
+     * @principle Restricts access to a user's own data tree (Ownership), with admin override.
      */
     match /players/{playerId} {
-      allow get: if isOwner(playerId);
-      allow list: if false; // Users should not be able to list all other players.
+      allow get: if isOwner(playerId) || isAdmin();
+      allow list: if isAdmin();
       allow create: if isOwner(playerId) && request.resource.data.id == playerId;
       allow update: if isExistingOwner(playerId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(playerId);
