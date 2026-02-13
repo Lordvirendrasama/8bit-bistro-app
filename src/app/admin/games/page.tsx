@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, onSnapshot, query, orderBy, addDoc, deleteDoc, doc } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { Loader2, PlusCircle, Trash2 } from "lucide-react";
 
 import { useFirestore } from "@/firebase";
@@ -36,6 +36,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 export default function AdminGamesPage() {
   const firestore = useFirestore();
@@ -100,20 +102,38 @@ export default function AdminGamesPage() {
     }
   };
 
+  const handleStatusToggle = async (gameId: string, currentStatus: boolean) => {
+    if (!firestore) return;
+    try {
+        await updateDoc(doc(firestore, "games", gameId), {
+            isActive: !currentStatus,
+        });
+        toast({
+            title: "Success",
+            description: "Game status updated.",
+        });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        toast({
+            title: "Error",
+            description: `Failed to update status: ${message}`,
+            variant: "destructive",
+        });
+    }
+  };
+
   return (
     <div className="p-4 md:p-8">
       <h1 className="font-headline text-4xl mb-6">Game Management</h1>
-      <div className="grid gap-8 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Add a New Game</CardTitle>
+            <CardTitle>Manage Games</CardTitle>
             <CardDescription>
-              Add a new game to the list of available options for score
-              submission.
+              Add new games and toggle their active status for the event.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleAddGame} className="flex gap-2">
+            <form onSubmit={handleAddGame} className="flex gap-2 mb-8">
               <Input
                 value={newGameName}
                 onChange={(e) => setNewGameName(e.target.value)}
@@ -124,22 +144,12 @@ export default function AdminGamesPage() {
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <PlusCircle className="h-4 w-4" />
+                  <PlusCircle className="mr-2 h-4 w-4" />
                 )}
-                <span className="sr-only">Add Game</span>
+                Add Game
               </Button>
             </form>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Current Games</CardTitle>
-            <CardDescription>
-              List of games currently in the event.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
             {loading ? (
               <div className="flex justify-center items-center h-24">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -149,6 +159,7 @@ export default function AdminGamesPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -156,6 +167,18 @@ export default function AdminGamesPage() {
                   {games.map((game) => (
                     <TableRow key={game.id}>
                       <TableCell className="font-medium">{game.name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                           <Switch
+                                id={`active-switch-${game.id}`}
+                                checked={game.isActive}
+                                onCheckedChange={() => handleStatusToggle(game.id, game.isActive)}
+                            />
+                            <Label htmlFor={`active-switch-${game.id}`} className={game.isActive ? 'text-green-400' : 'text-muted-foreground'}>
+                                {game.isActive ? 'Active' : 'Inactive'}
+                            </Label>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right">
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
@@ -188,7 +211,7 @@ export default function AdminGamesPage() {
                   ))}
                   {games.length === 0 && (
                     <TableRow>
-                        <TableCell colSpan={2} className="text-center text-muted-foreground">No games added yet.</TableCell>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground">No games added yet.</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -196,7 +219,6 @@ export default function AdminGamesPage() {
             )}
           </CardContent>
         </Card>
-      </div>
     </div>
   );
 }

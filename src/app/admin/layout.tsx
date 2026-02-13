@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { Toaster } from "@/components/ui/toaster";
+import AdminHeader from "@/components/layout/AdminHeader";
 
 export const ADMIN_PASSWORD_KEY = "pixel-podium-admin-auth";
 
@@ -49,10 +49,14 @@ export default function AdminLayout({
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <Toaster />
       </div>
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <AdminHeader />
+      {children}
+    </>
+  );
 }
