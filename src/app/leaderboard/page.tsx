@@ -93,7 +93,7 @@ function LeaderboardPage() {
 
   return (
     <div className="min-h-screen pt-10 pb-10">
-      <div className="container mx-auto max-w-7xl p-4">
+      <div className="px-4 md:px-8">
         <h1
           className="font-headline text-5xl sm:text-7xl text-center font-black text-primary uppercase tracking-wider mb-8"
         >
@@ -113,7 +113,7 @@ function LeaderboardPage() {
         )}
 
         {!loadingGames && games.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {games.map((game) => (
               <div key={game.id}>
                 <h2 className="font-headline text-3xl sm:text-4xl text-center text-foreground mb-4 bg-primary/80 py-2 rounded-md shadow-lg">
