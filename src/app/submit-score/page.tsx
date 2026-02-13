@@ -218,6 +218,7 @@ function SubmitScoreForm() {
       setImagePreview(null);
       setImageFile(null);
       setSelectedGameId("");
+      setIsSubmitting(false);
     } catch (error) {
       const message =
         error instanceof Error
@@ -229,8 +230,6 @@ function SubmitScoreForm() {
         title: "Submission Failed",
         description: message,
       });
-    } finally {
-      // 6. Reset submitting state
       setIsSubmitting(false);
     }
   };
