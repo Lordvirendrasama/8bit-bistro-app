@@ -27,21 +27,22 @@ export default function AdminHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex flex-col items-center justify-center py-4">
-        <div className="relative flex w-full justify-center">
-          <Link href="/admin/dashboard">
-            <Logo />
-          </Link>
-          <div className="absolute right-0 top-1/2 flex -translate-y-1/2 items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/dashboard">View App</Link>
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              Logout
-            </Button>
-          </div>
+      <div className="container flex h-40 flex-col items-center justify-center gap-4">
+        <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center">
+            <div />
+            <Link href="/admin/dashboard" className="justify-self-center">
+                <Logo />
+            </Link>
+            <div className="flex items-center justify-self-end gap-2">
+                <Button variant="outline" size="sm" asChild>
+                <Link href="/dashboard">View App</Link>
+                </Button>
+                <Button variant="ghost" size="sm" onClick={handleLogout}>
+                Logout
+                </Button>
+            </div>
         </div>
-        <nav className="mt-4 flex items-center gap-4">
+        <nav className="flex items-center gap-4">
           {navItems.map((item) => (
             <Link
               key={item.href}

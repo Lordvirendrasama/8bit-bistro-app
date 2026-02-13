@@ -36,11 +36,12 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container relative flex h-28 items-center justify-center">
-        <Link href="/dashboard" onClick={handleLogoClick}>
+      <div className="container grid h-40 grid-cols-[1fr_auto_1fr] items-center">
+        <div />
+        <Link href="/dashboard" onClick={handleLogoClick} className="justify-self-center">
           <Logo />
         </Link>
-        <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-2">
+        <div className="flex items-center justify-self-end gap-2">
             <Button variant="outline" size="sm" asChild>
                 <Link href="/admin/login">Admin</Link>
             </Button>
