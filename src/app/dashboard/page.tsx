@@ -11,9 +11,9 @@ import PixelVideoIcon from "@/components/icons/PixelVideoIcon";
 function DashboardPage() {
   const menuItems = [
     {
-      href: "/submit-score",
-      title: "Submit High Score",
-      description: "Got a new top score? Submit it here.",
+      href: "/",
+      title: "Enter Player Score",
+      description: "Enter a new score on behalf of a player.",
       icon: <PixelCameraIcon className="w-16 h-16 mb-4 text-primary" />,
     },
     {
