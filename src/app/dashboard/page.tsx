@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AuthGuard } from "@/components/auth/AuthGuard";
-import Header from "@/components/layout/Header";
 import PixelCameraIcon from "@/components/icons/PixelCameraIcon";
 import PixelLeaderboardIcon from "@/components/icons/PixelLeaderboardIcon";
 import PixelVideoIcon from "@/components/icons/PixelVideoIcon";
@@ -31,26 +30,23 @@ function DashboardPage() {
   ];
 
   return (
-    <>
-      <Header />
-      <div className="container mx-auto max-w-4xl p-4">
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-1">
-          {menuItems.map((item) => (
-            <Link href={item.href} key={item.title} className="group">
-              <Card className="h-full flex flex-col items-center justify-center text-center p-8 transition-all duration-300 ease-in-out hover:bg-card/80 hover:scale-105 hover:shadow-2xl hover:shadow-primary/20 border-2 border-transparent hover:border-primary">
-                {item.icon}
-                <CardHeader className="p-0">
-                  <CardTitle className="font-headline text-2xl">{item.title}</CardTitle>
-                </CardHeader>
-                <CardDescription className="mt-2 text-muted-foreground group-hover:text-foreground/80">
-                  {item.description}
-                </CardDescription>
-              </Card>
-            </Link>
-          ))}
-        </div>
+    <div className="container mx-auto max-w-4xl p-4 pt-10">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-1">
+        {menuItems.map((item) => (
+          <Link href={item.href} key={item.title} className="group">
+            <Card className="h-full flex flex-col items-center justify-center text-center p-8 transition-all duration-300 ease-in-out hover:bg-card/80 hover:scale-105 hover:shadow-2xl hover:shadow-primary/20 border-2 border-transparent hover:border-primary">
+              {item.icon}
+              <CardHeader className="p-0">
+                <CardTitle className="font-headline text-2xl">{item.title}</CardTitle>
+              </CardHeader>
+              <CardDescription className="mt-2 text-muted-foreground group-hover:text-foreground/80">
+                {item.description}
+              </CardDescription>
+            </Card>
+          </Link>
+        ))}
       </div>
-    </>
+    </div>
   );
 }
 

@@ -28,7 +28,6 @@ import {
 import { useFirestore, useAuth as useFirebaseAuthInstance } from "@/firebase";
 import { User, signInAnonymously } from "firebase/auth";
 
-import Header from "@/components/layout/Header";
 import {
   Card,
   CardContent,
@@ -361,8 +360,7 @@ function HomePage() {
 
   return (
     <>
-      <Header />
-      <div className="container mx-auto max-w-lg p-4">
+      <div className="container mx-auto max-w-lg p-4 pt-10">
         <Card className="shadow-2xl shadow-primary/10">
           <CardHeader>
             <CardTitle className="font-headline text-3xl">

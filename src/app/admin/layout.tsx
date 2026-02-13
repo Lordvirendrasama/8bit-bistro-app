@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import AdminHeader from "@/components/layout/AdminHeader";
 import { useUser } from "@/firebase";
 
 // You can change this to your actual admin's email
@@ -56,7 +55,6 @@ export default function AdminLayout({
   // Render the admin layout for the verified admin user
   return (
     <>
-      <AdminHeader />
       {children}
     </>
   );

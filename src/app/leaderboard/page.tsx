@@ -16,7 +16,6 @@ import { Loader2, Crown } from "lucide-react";
 import { useGames } from "@/lib/hooks/use-games";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import Logo from "@/components/Logo";
 
 function GameLeaderboard({ gameId }: { gameId: string }) {
   const [scores, setScores] = useState<Score[]>([]);
@@ -94,11 +93,8 @@ function LeaderboardPage() {
   const { games, loading: loadingGames } = useGames();
 
   return (
-    <div className="min-h-screen pt-10 pb-10">
+    <div className="py-10">
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-center mb-8">
-          <Logo />
-        </div>
         <h1
           className="font-headline text-5xl sm:text-7xl text-center font-black text-primary uppercase tracking-wider mb-8"
         >
