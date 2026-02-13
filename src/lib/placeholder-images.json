@@ -1,3 +1,34 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "media-1",
+      "description": "Retro wave sunset",
+      "imageUrl": "https://images.unsplash.com/photo-1685103127857-312c0ab4aa91?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxyZXRybyUyMHN1bnNldHxlbnwwfHx8fDE3NzA5MjEyMzd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "retro sunset"
+    },
+    {
+      "id": "media-2",
+      "description": "Arcade joystick close-up",
+      "imageUrl": "https://images.unsplash.com/photo-1640955011254-39734e60b16f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxhcmNhZGUlMjBqb3lzdGlja3xlbnwwfHx8fDE3NzA5OTY0MDB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "arcade joystick"
+    },
+    {
+      "id": "media-3",
+      "description": "Neon grid landscape",
+      "imageUrl": "https://images.unsplash.com/photo-1769120062361-0a6469f5d7b3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxuZW9uJTIwZ3JpZHxlbnwwfHx8fDE3NzA5OTY0MDB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "neon grid"
+    },
+    {
+      "id": "media-4",
+      "description": "Pixel art city",
+      "imageUrl": "https://images.unsplash.com/photo-1600099165527-12c7993ef718?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxwaXhlbCUyMGNpdHl8ZW58MHx8fHwxNzcwOTc5NjU3fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "pixel city"
+    },
+    {
+      "id": "media-5",
+      "description": "Cassette tape",
+      "imageUrl": "https://images.unsplash.com/photo-1648962495302-8e1f8fc5fa98?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxjYXNzZXR0ZSUyMHRhcGV8ZW58MHx8fHwxNzcwOTk2NDAwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "cassette tape"
+    }
+  ]
 }

@@ -1,0 +1,16 @@
+{
+  "name": "Pixel Podium",
+  "short_name": "Pixel Podium",
+  "description": "Retro Arcade Event App for high scores and leaderboards.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#21152F",
+  "theme_color": "#FF66FF"
+}
