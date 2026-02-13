@@ -17,14 +17,14 @@ export type Game = {
 export type ScoreStatus = 'pending' | 'approved' | 'rejected';
 
 export type Score = {
-  id: string;
+  id:string;
   playerId: string;
   gameId: string;
   playerName: string;
   playerInstagram: string;
   gameName: string;
   scoreValue: number;
-  imageUrl: string;
+  imageUrl?: string;
   status: ScoreStatus;
   submittedAt: Timestamp;
   isSuspicious?: boolean;

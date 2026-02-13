@@ -15,7 +15,7 @@ const ProactiveFraudDetectionInputSchema = z.object({
     playerId: z.string().describe('The ID of the player submitting the score.').min(1),
     gameName: z.string().describe('The name of the game for the submission.').min(1),
     scoreValue: z.number().describe('The numerical score submitted.').int().nonnegative(),
-    imageURL: z.string().url().describe('The URL of the score proof image.').min(1),
+    imageURL: z.string().url().describe('The URL of the score proof image.').optional(),
     timestamp: z.string().datetime().describe('The timestamp of the submission in ISO 8601 format.').min(1),
   }),
   playerContext: z.object({
@@ -58,7 +58,11 @@ Here is the current score submission details:
 Player ID: {{{currentSubmission.playerId}}}
 Game Name: {{{currentSubmission.gameName}}}
 Score Value: {{{currentSubmission.scoreValue}}}
+{{#if currentSubmission.imageURL}}
 Image Proof URL: {{{currentSubmission.imageURL}}}
+{{else}}
+Image Proof URL: Not yet available.
+{{/if}}
 Timestamp: {{{currentSubmission.timestamp}}}
 
 Player Context:

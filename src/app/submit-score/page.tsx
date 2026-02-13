@@ -6,15 +6,28 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Camera, Loader2, PartyPopper } from "lucide-react";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  FirebaseStorage,
+} from "firebase/storage";
 import {
   collection,
   addDoc,
   serverTimestamp,
   doc,
   getDoc,
+  updateDoc,
+  query,
+  where,
+  getDocs,
+  orderBy,
+  Firestore,
 } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
+import type { User } from "firebase/auth";
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import Header from "@/components/layout/Header";
@@ -36,6 +49,104 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { proactiveFraudDetectionForScoreSubmissions } from "@/ai/flows/proactive-fraud-detection-for-score-submissions-flow";
+
+/**
+ * Handles background tasks for a submission: image upload and AI fraud analysis.
+ * This function is designed to be called without being awaited.
+ */
+const uploadAndAnalyze = async ({
+  firestore,
+  storage,
+  docId,
+  imageFile,
+  scoreData,
+  user,
+}: {
+  firestore: Firestore;
+  storage: FirebaseStorage;
+  docId: string;
+  imageFile: File;
+  scoreData: any;
+  user: User;
+}) => {
+  try {
+    // 1. Upload image
+    const storageRef = ref(
+      storage,
+      `score_proofs/${user.uid}_${Date.now()}_${imageFile.name}`
+    );
+    const snapshot = await uploadBytes(storageRef, imageFile, {
+      contentType: imageFile.type,
+    });
+    const imageUrl = await getDownloadURL(snapshot.ref);
+
+    // 2. Update doc with image URL
+    const scoreDocRef = doc(firestore, "scoreSubmissions", docId);
+    await updateDoc(scoreDocRef, { imageUrl });
+
+    // 3. Proactive Fraud Detection
+    const playerContext = {
+      name: scoreData.playerName,
+      instagram: scoreData.playerInstagram,
+    };
+
+    const previousScoresQuery = query(
+      collection(firestore, "scoreSubmissions"),
+      where("playerId", "==", user.uid),
+      where("gameId", "==", scoreData.gameId),
+      orderBy("submittedAt", "desc")
+    );
+    const previousScoresSnapshot = await getDocs(previousScoresQuery);
+    const previousScoresByPlayerForGame = previousScoresSnapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (doc.id === docId || !data.submittedAt) return null;
+        return {
+          scoreValue: data.scoreValue,
+          timestamp: data.submittedAt.toDate().toISOString(),
+        };
+      })
+      .filter((item): item is { scoreValue: number; timestamp: string } =>
+        item !== null
+      );
+
+    const fraudCheckResult = await proactiveFraudDetectionForScoreSubmissions({
+      currentSubmission: {
+        playerId: scoreData.playerId,
+        gameName: scoreData.gameName,
+        scoreValue: scoreData.scoreValue,
+        imageURL: imageUrl,
+        timestamp: new Date().toISOString(),
+      },
+      playerContext,
+      previousScoresByPlayerForGame,
+    });
+
+    if (fraudCheckResult.isSuspicious) {
+      await updateDoc(scoreDocRef, {
+        isSuspicious: true,
+        suspicionReason: `${fraudCheckResult.reason} (Confidence: ${fraudCheckResult.confidence}%)`,
+      });
+    }
+  } catch (error) {
+    console.error("Error in background submission task:", error);
+    try {
+      const scoreDocRef = doc(firestore, "scoreSubmissions", docId);
+      await updateDoc(scoreDocRef, {
+        status: "rejected",
+        suspicionReason:
+          "Background processing failed. Error: " +
+          (error instanceof Error ? error.message : "Unknown"),
+      });
+    } catch (updateError) {
+      console.error(
+        "Failed to update submission with error status:",
+        updateError
+      );
+    }
+  }
+};
 
 function SubmitScoreForm() {
   const { user } = useAuth();
@@ -143,45 +254,30 @@ function SubmitScoreForm() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!user || !firestore || !imageFile || isSubmitting) {
+    const formData = new FormData(event.currentTarget);
+    const scoreValue = formData.get("scoreValue") as string;
+    const game = games.find((g) => g.id === selectedGameId);
+
+    if (
+      !user ||
+      !firestore ||
+      !imageFile ||
+      !selectedGameId ||
+      !scoreValue ||
+      !game
+    ) {
       toast({
         variant: "destructive",
         title: "Submission Failed",
-        description: "Please fill all fields and provide an image.",
+        description:
+          "Please select a game, enter a score, and provide an image.",
       });
       return;
     }
 
     setIsSubmitting(true);
 
-    const formData = new FormData(event.currentTarget);
-    const gameId = selectedGameId;
-    const scoreValue = formData.get("scoreValue") as string;
-    const game = games.find((g) => g.id === gameId);
-
-    if (!gameId || !scoreValue || !game) {
-      toast({
-        variant: "destructive",
-        title: "Submission Failed",
-        description: "A valid game and score are required.",
-      });
-      setIsSubmitting(false);
-      return;
-    }
-
     try {
-      // 1. Upload image to Storage
-      const storage = getStorage(firestore.app);
-      const storageRef = ref(
-        storage,
-        `score_proofs/${user.uid}_${Date.now()}_${imageFile.name}`
-      );
-      const snapshot = await uploadBytes(storageRef, imageFile, {
-        contentType: imageFile.type,
-      });
-      const imageUrl = await getDownloadURL(snapshot.ref);
-
-      // 2. Get player data
       const playerDocRef = doc(firestore, "players", user.uid);
       const playerDoc = await getDoc(playerDocRef);
       if (!playerDoc.exists()) {
@@ -189,42 +285,55 @@ function SubmitScoreForm() {
       }
       const playerData = playerDoc.data();
 
-      // 3. Prepare score data
       const scoreData = {
         playerId: user.uid,
         playerName: playerData?.name ?? "Unknown Player",
         playerInstagram: playerData?.instagram ?? "",
-        gameId,
+        gameId: selectedGameId,
         gameName: game.name,
         scoreValue: Number(scoreValue),
-        imageUrl,
         status: "pending" as const,
         submittedAt: serverTimestamp(),
       };
 
-      // 4. Add score document to Firestore
-      await addDoc(collection(firestore, "scoreSubmissions"), scoreData);
+      const docRef = await addDoc(
+        collection(firestore, "scoreSubmissions"),
+        scoreData
+      );
 
-      // 5. Success!
-      setShowSuccessModal(true);
+      // --- Submission successful, start background tasks ---
+      setShowSuccessModal(true); // Show success to user immediately
+
+      const imageToUpload = imageFile; // Capture file before resetting state
+      const storage = getStorage(firestore.app);
+
+      // Kick off background processing. We don't wait for it.
+      uploadAndAnalyze({
+        firestore,
+        storage,
+        docId: docRef.id,
+        imageFile: imageToUpload,
+        scoreData,
+        user,
+      });
+
+      // Reset form for next submission
       formRef.current?.reset();
       setImagePreview(null);
       setImageFile(null);
       setSelectedGameId("");
-      setIsSubmitting(false);
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "An unknown error occurred. Check console for details.";
+        error instanceof Error ? error.message : "An unknown error occurred.";
       console.error("Submission Error:", error);
       toast({
         variant: "destructive",
         title: "Submission Failed",
         description: message,
       });
-      setIsSubmitting(false);
     }
+
+    setIsSubmitting(false); // Always reset submitting state
   };
 
   return (
@@ -309,7 +418,12 @@ function SubmitScoreForm() {
         <Button
           type="submit"
           className="w-full text-lg py-6"
-          disabled={isSubmitting || isProcessingImage || !imageFile || !selectedGameId}
+          disabled={
+            isSubmitting ||
+            isProcessingImage ||
+            !imageFile ||
+            !selectedGameId
+          }
         >
           {isSubmitting ? (
             <>
@@ -330,8 +444,8 @@ function SubmitScoreForm() {
               Score Submitted!
             </DialogTitle>
             <DialogDescription>
-              Your score is pending approval. You can check the live leaderboard
-              soon. Good luck!
+              Your score is pending approval. You can check the live
+              leaderboard soon. Good luck!
             </DialogDescription>
           </DialogHeader>
           <Button

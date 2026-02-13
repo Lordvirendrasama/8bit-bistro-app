@@ -83,7 +83,10 @@ export default function AdminMainPage() {
 
   const scoresQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, "scoreSubmissions"), orderBy("submittedAt", "desc"));
+    return query(
+      collection(firestore, "scoreSubmissions"),
+      orderBy("submittedAt", "desc")
+    );
   }, [firestore]);
 
   const { data: scores, isLoading: loadingScores } =
@@ -132,7 +135,7 @@ export default function AdminMainPage() {
             return sortConfig.direction === "ascending" ? 1 : -1;
           return 0;
         }
-        
+
         if (aValue === undefined || aValue === null) return 1;
         if (bValue === undefined || bValue === null) return -1;
 
@@ -266,8 +269,19 @@ export default function AdminMainPage() {
 
     try {
       if (!firestore) throw new Error("Firestore not available");
-      
+
       const { imageUrl, scoreValue, gameName } = score;
+
+      if (!imageUrl) {
+        toast({
+          title: "Cannot Verify",
+          description: "Image is not yet available for this submission.",
+          variant: "destructive",
+        });
+        setAiVerifyModalOpen(false);
+        setIsVerifying(false);
+        return;
+      }
 
       const response = await fetch(imageUrl);
       if (!response.ok) throw new Error("Failed to fetch image from storage.");
@@ -477,15 +491,28 @@ export default function AdminMainPage() {
                           : "N/A"}
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" asChild>
-                          <Link
-                            href={score.imageUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <FileImage className="h-5 w-5" />
-                          </Link>
-                        </Button>
+                        {score.imageUrl ? (
+                          <Button variant="ghost" size="icon" asChild>
+                            <Link
+                              href={score.imageUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <FileImage className="h-5 w-5" />
+                            </Link>
+                          </Button>
+                        ) : (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" disabled>
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Image processing...</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -522,7 +549,10 @@ export default function AdminMainPage() {
                               Edit Score
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onSelect={() => openAiVerifyModal(score)}
+                              onSelect={() =>
+                                score.imageUrl && openAiVerifyModal(score)
+                              }
+                              disabled={!score.imageUrl}
                             >
                               <Sparkles className="mr-2 h-4 w-4" />
                               Verify with AI
