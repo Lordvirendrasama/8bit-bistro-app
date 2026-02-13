@@ -65,9 +65,14 @@ export default function Header() {
             ))}
           </nav>
         </div>
-        {user && (
-            <Button variant="ghost" size="sm" onClick={handleSignOut}>Sign Out</Button>
-        )}
+        <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+                <Link href="/admin/login">Admin</Link>
+            </Button>
+            {user && (
+                <Button variant="ghost" size="sm" onClick={handleSignOut}>Sign Out</Button>
+            )}
+        </div>
       </div>
     </header>
   );
