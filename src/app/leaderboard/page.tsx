@@ -5,8 +5,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
-  limit,
   onSnapshot,
   getDocs,
 } from "firebase/firestore";
@@ -76,9 +74,7 @@ function GameLeaderboard({ gameId }: { gameId: string }) {
     const scoresQuery = query(
       collection(firestore, "scoreSubmissions"),
       where("gameId", "==", gameId),
-      where("status", "==", "approved"),
-      orderBy("scoreValue", "desc"),
-      limit(10)
+      where("status", "==", "approved")
     );
 
     const unsubscribe = onSnapshot(scoresQuery, async (snapshot) => {
@@ -86,7 +82,12 @@ function GameLeaderboard({ gameId }: { gameId: string }) {
         (doc) => ({ id: doc.id, ...doc.data() } as Score)
       );
 
-      const playerIds = [...new Set(scoresData.map((score) => score.playerId))];
+      // Sort and limit on the client-side
+      const topScores = scoresData
+        .sort((a, b) => b.scoreValue - a.scoreValue)
+        .slice(0, 10);
+
+      const playerIds = [...new Set(topScores.map((score) => score.playerId))];
       const playersMap = new Map<string, Player>();
 
       if (playerIds.length > 0) {
@@ -107,7 +108,7 @@ function GameLeaderboard({ gameId }: { gameId: string }) {
         }
       }
 
-      const enrichedScores = scoresData.map((score) => ({
+      const enrichedScores = topScores.map((score) => ({
         ...score,
         player: playersMap.get(score.playerId),
       }));
