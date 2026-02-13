@@ -28,13 +28,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useGames } from "@/lib/hooks/use-games";
 import {
   Dialog,
@@ -238,31 +231,27 @@ function SubmitScoreForm() {
     <>
       <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <Label htmlFor="gameId">Game</Label>
-          <Select
-            name="gameId"
-            onValueChange={setSelectedGameId}
-            value={selectedGameId}
-            disabled={gamesLoading || isSubmitting}
-            required
-          >
-            <SelectTrigger id="gameId">
-              <SelectValue placeholder="Select a game..." />
-            </SelectTrigger>
-            <SelectContent>
-              {gamesLoading ? (
-                <SelectItem value="loading" disabled>
-                  Loading games...
-                </SelectItem>
-              ) : (
-                games.map((game) => (
-                  <SelectItem key={game.id} value={game.id}>
-                    {game.name}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
+          <Label>Game</Label>
+          {gamesLoading ? (
+            <div className="flex justify-center p-4">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {games.map((game) => (
+                <Button
+                  key={game.id}
+                  type="button"
+                  variant={selectedGameId === game.id ? "default" : "outline"}
+                  onClick={() => setSelectedGameId(game.id)}
+                  disabled={isSubmitting}
+                  className="w-full"
+                >
+                  {game.name}
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>
