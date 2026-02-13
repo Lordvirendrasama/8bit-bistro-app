@@ -3,7 +3,6 @@ import { useState, useEffect, useMemo } from "react";
 import {
   collection,
   onSnapshot,
-  orderBy,
   query,
   doc,
   getDoc,
@@ -121,8 +120,7 @@ export default function AdminDashboardPage() {
     if (!firestore) return;
     setLoading(true);
     const scoresQuery = query(
-      collection(firestore, "scoreSubmissions"),
-      orderBy("submittedAt", "desc")
+      collection(firestore, "scoreSubmissions")
     );
     const unsubscribeScores = onSnapshot(scoresQuery, (snapshot) => {
       const scoresData: Score[] = [];
