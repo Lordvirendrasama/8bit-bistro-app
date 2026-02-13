@@ -76,6 +76,7 @@ export default function Home() {
       const uid = userCredential.user.uid;
       
       const playerData = {
+          id: uid,
           name: data.name,
           instagram: data.instagram,
           groupSize: data.groupSize,
