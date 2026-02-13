@@ -115,9 +115,8 @@ function SubmitScoreForm() {
         }
 
         const storage = getStorage(firestore.app);
-        const fileBuffer = Buffer.from(await imageFile.arrayBuffer());
         const storageRef = ref(storage, `score_proofs/${user.uid}_${Date.now()}_${imageFile.name}`);
-        const snapshot = await uploadBytes(storageRef, fileBuffer, { contentType: imageFile.type });
+        const snapshot = await uploadBytes(storageRef, imageFile, { contentType: imageFile.type });
         const imageUrl = await getDownloadURL(snapshot.ref);
 
         const scoreData = {
