@@ -5,18 +5,12 @@ import Logo from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/firebase';
-import { useState, useEffect } from 'react';
 import Image from 'next/image';
 
 export default function Footer() {
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAuth();
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   const handleLogout = () => {
     if (auth) {
@@ -31,11 +25,6 @@ export default function Footer() {
     { href: '/admin/games', label: 'Games' },
   ];
   
-  if (!isClient) {
-    // Render null on the server and initial client render to avoid hydration mismatch
-    return null;
-  }
-
   if (pathname === '/admin/login') {
     return null;
   }

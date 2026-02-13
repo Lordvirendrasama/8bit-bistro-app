@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 import "./globals.css";
-import Footer from "@/components/layout/Footer";
+import ClientLayout from "@/components/layout/ClientLayout";
 
 const APP_NAME = "The 8Bit Bistro";
 const APP_DESCRIPTION =
@@ -53,9 +52,7 @@ export default function RootLayout({
         <div className="fixed inset-0 bg-background/70 backdrop-blur-sm" />
         <div className="relative flex min-h-screen flex-col">
           <FirebaseClientProvider>
-            <main className="flex-grow">{children}</main>
-            <Toaster />
-            <Footer />
+            <ClientLayout>{children}</ClientLayout>
           </FirebaseClientProvider>
         </div>
       </body>
