@@ -51,7 +51,7 @@ export default function Home() {
 
   useEffect(() => {
     if (logoClicks >= 5) {
-      router.push("/admin/settings");
+      router.push("/admin/login");
     }
   }, [logoClicks, router]);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
@@ -17,6 +17,19 @@ export default function AdminLoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+
+  useEffect(() => {
+    try {
+      const storedPass = localStorage.getItem(ADMIN_PASSWORD_KEY);
+      const adminPass = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+
+      if (storedPass === adminPass) {
+        router.replace("/admin/dashboard");
+      }
+    } catch (error) {
+      // If localStorage is not available, do nothing
+    }
+  }, [router]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
