@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, FormEvent } from "react";
+import { useState, useRef, FormEvent } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Camera, Loader2, PartyPopper } from "lucide-react";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { collection, addDoc, serverTimestamp, getDoc, doc, query, where, orderBy, getDocs, Timestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
@@ -37,11 +37,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  proactiveFraudDetectionForScoreSubmissions,
-  type ProactiveFraudDetectionInput,
-} from "@/ai/flows/proactive-fraud-detection-for-score-submissions-flow";
-import type { Player } from "@/types";
 
 function SubmitScoreForm() {
   const { user } = useAuth();
@@ -102,57 +97,28 @@ function SubmitScoreForm() {
     }
 
     try {
-        const storage = getStorage(firestore.app);
-        const fileBuffer = Buffer.from(await imageFile.arrayBuffer());
-        const storageRef = ref(storage, `score_proofs/${user.uid}_${Date.now()}_${imageFile.name}`);
-        const snapshot = await uploadBytes(storageRef, fileBuffer, { contentType: imageFile.type });
-        const imageUrl = await getDownloadURL(snapshot.ref);
-
-        const playerDoc = await getDoc(doc(firestore, "players", user.uid));
-        if (!playerDoc.exists()) throw new Error("Player not found");
-        const playerData = playerDoc.data() as Omit<Player, "id">;
-        
         const game = games.find(g => g.id === gameId);
-
         const scoresQuery = query(
           collection(firestore, "scoreSubmissions"),
           where("playerId", "==", user.uid),
-          where("gameId", "==", gameId),
-          orderBy("submittedAt", "asc")
+          where("gameId", "==", gameId)
         );
         const scoresSnapshot = await getDocs(scoresQuery);
-        const previousScores = scoresSnapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            scoreValue: data.scoreValue,
-            timestamp: (data.submittedAt as Timestamp).toDate().toISOString(),
-          };
-        });
-
-        if (previousScores.length >= 5) {
+        if (scoresSnapshot.size >= 5) {
           toast({
-              success: false,
-              message: `Submission limit of 5 reached for ${game?.name}.`,
+            variant: "destructive",
+            title: "Submission Limit Reached",
+            description: `You have reached the submission limit of 5 for ${game?.name}.`,
           });
           setIsSubmitting(false);
           return;
         }
 
-        const aiInput: ProactiveFraudDetectionInput = {
-          currentSubmission: {
-            playerId: user.uid,
-            gameName: game?.name ?? 'Unknown Game',
-            scoreValue: Number(scoreValue),
-            imageURL: imageUrl,
-            timestamp: new Date().toISOString(),
-          },
-          playerContext: {
-            name: playerData.name,
-            instagram: playerData.instagram,
-          },
-          previousScoresByPlayerForGame: previousScores,
-        };
-        const aiResult = await proactiveFraudDetectionForScoreSubmissions(aiInput);
+        const storage = getStorage(firestore.app);
+        const fileBuffer = Buffer.from(await imageFile.arrayBuffer());
+        const storageRef = ref(storage, `score_proofs/${user.uid}_${Date.now()}_${imageFile.name}`);
+        const snapshot = await uploadBytes(storageRef, fileBuffer, { contentType: imageFile.type });
+        const imageUrl = await getDownloadURL(snapshot.ref);
 
         const scoreData = {
           playerId: user.uid,
@@ -161,8 +127,6 @@ function SubmitScoreForm() {
           imageUrl,
           status: "pending" as const,
           submittedAt: serverTimestamp(),
-          isSuspicious: aiResult.isSuspicious,
-          suspicionReason: aiResult.reason,
         };
 
         await addDoc(collection(firestore, "scoreSubmissions"), scoreData);
