@@ -323,13 +323,19 @@ function SubmitScoreForm() {
       setImageFile(null);
       setSelectedGameId("");
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "An unknown error occurred.";
       console.error("Submission Error:", error);
+      let description = "An unknown error occurred. Please try again.";
+      if (error instanceof Error && error.message.includes("max retries")) {
+        description =
+          "Could not connect to the database. Please check your internet connection and try again in a moment.";
+      } else if (error instanceof Error) {
+        description = error.message;
+      }
+
       toast({
         variant: "destructive",
         title: "Submission Failed",
-        description: message,
+        description: description,
       });
     }
 
@@ -491,3 +497,5 @@ export default function GuardedSubmitScorePage() {
     </AuthGuard>
   );
 }
+
+    
