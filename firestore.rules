@@ -14,7 +14,6 @@
  *   are public, but pending/rejected scores are private to the submitter and admins.
  * - /admins/{adminId}: An access-control list where the existence of a document grants
  *   admin privileges to the corresponding user UID.
- * - /appConfig/event: A singleton document for global, publicly readable settings.
  *
  * Key Security Decisions:
  * - Admin Access: Administrative privileges are granted to a specific email address.
@@ -108,19 +107,6 @@ service cloud.firestore {
     match /admins/{adminId} {
       allow get, list: if isAdmin();
       allow create, update, delete: if isAdmin();
-    }
-
-    /**
-     * @description
-     *   A singleton document for global application configuration. It is publicly readable
-     *   so all clients can fetch settings, but only admins can modify it.
-     * @path /appConfig/event
-     */
-    match /appConfig/event {
-      allow get: if true;
-      allow list: if false; // This is a specific document, not a collection to be listed.
-      allow create, update: if isAdmin();
-      allow delete: if false; // This singleton document should not be deleted.
     }
   }
 }

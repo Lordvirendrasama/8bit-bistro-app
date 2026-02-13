@@ -30,7 +30,3 @@ export type Score = {
   isSuspicious?: boolean;
   suspicionReason?: string;
 };
-
-export type AppConfig = {
-  videoPlaylistUrl?: string;
-};

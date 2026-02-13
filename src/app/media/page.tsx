@@ -1,22 +1,11 @@
 "use client";
 
-import { doc } from "firebase/firestore";
-import { Loader2, Terminal } from "lucide-react";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Card, CardContent } from "@/components/ui/card";
-import { useFirestore, useDoc, useMemoFirebase } from "@/firebase";
-import type { AppConfig } from "@/types";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 function MediaPage() {
-  const firestore = useFirestore();
-  const configRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, "appConfig", "event") : null),
-    [firestore]
-  );
-  const { data: appConfig, isLoading } = useDoc<AppConfig>(configRef);
-
-  const videoPlaylistUrl = appConfig?.videoPlaylistUrl;
+  const videoPlaylistUrl =
+    "https://www.youtube.com/embed/videoseries?list=PLYVjGTi85afou-GAHkhC6OgU7Merg0G0B";
 
   return (
     <div className="min-h-screen pt-10 pb-10">
@@ -27,28 +16,14 @@ function MediaPage() {
         <Card className="overflow-hidden shadow-2xl shadow-primary/10">
           <CardContent className="p-0">
             <div className="aspect-video w-full bg-black flex items-center justify-center">
-              {isLoading && <Loader2 className="h-10 w-10 animate-spin text-primary" />}
-              {!isLoading && videoPlaylistUrl && (
-                <iframe
-                  src={videoPlaylistUrl}
-                  title="YouTube video player"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  className="w-full h-full"
-                ></iframe>
-              )}
-              {!isLoading && !videoPlaylistUrl && (
-                  <div className="text-center text-muted-foreground p-8">
-                    <Alert>
-                        <Terminal className="h-4 w-4" />
-                        <AlertTitle>No Media URL</AlertTitle>
-                        <AlertDescription>
-                            The event media playlist URL has not been set by an admin yet.
-                        </AlertDescription>
-                    </Alert>
-                  </div>
-              )}
+              <iframe
+                src={videoPlaylistUrl}
+                title="YouTube video player"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                className="w-full h-full"
+              ></iframe>
             </div>
           </CardContent>
         </Card>
