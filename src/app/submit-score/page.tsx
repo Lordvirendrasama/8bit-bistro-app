@@ -81,7 +81,7 @@ function SubmitScoreForm() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!user || !firestore || !imageFile) {
+    if (!user || !firestore || !imageFile || isSubmitting) {
       toast({
         variant: "destructive",
         title: "Submission Failed",
@@ -95,19 +95,20 @@ function SubmitScoreForm() {
     const formData = new FormData(event.currentTarget);
     const gameId = selectedGameId;
     const scoreValue = formData.get("scoreValue") as string;
+    const game = games.find((g) => g.id === gameId);
 
-    if (!gameId || !scoreValue) {
+    if (!gameId || !scoreValue || !game) {
       toast({
         variant: "destructive",
         title: "Submission Failed",
-        description: "Game and score are required.",
+        description: "A valid game and score are required.",
       });
       setIsSubmitting(false);
       return;
     }
 
     try {
-      const game = games.find((g) => g.id === gameId);
+      // 1. Check submission limit
       const scoresQuery = query(
         collection(firestore, "scoreSubmissions"),
         where("playerId", "==", user.uid),
@@ -118,75 +119,63 @@ function SubmitScoreForm() {
         toast({
           variant: "destructive",
           title: "Submission Limit Reached",
-          description: `You have reached the submission limit of 5 for ${game?.name}.`,
+          description: `You have reached the submission limit of 5 for ${game.name}.`,
         });
-        setIsSubmitting(false);
         return;
       }
 
-      // Show success UI immediately to make it feel fast
+      // 2. Upload image to Storage
+      const storage = getStorage(firestore.app);
+      const storageRef = ref(
+        storage,
+        `score_proofs/${user.uid}_${Date.now()}_${imageFile.name}`
+      );
+      const snapshot = await uploadBytes(storageRef, imageFile, {
+        contentType: imageFile.type,
+      });
+      const imageUrl = await getDownloadURL(snapshot.ref);
+
+      // 3. Get player data
+      const playerDocRef = doc(firestore, "players", user.uid);
+      const playerDoc = await getDoc(playerDocRef);
+      const playerData = playerDoc.data();
+
+      // 4. Prepare score data
+      const scoreData = {
+        playerId: user.uid,
+        playerName: playerData?.name ?? "Unknown Player",
+        playerInstagram: playerData?.instagram ?? "",
+        gameId,
+        gameName: game.name,
+        scoreValue: Number(scoreValue),
+        imageUrl,
+        status: "pending" as const,
+        submittedAt: serverTimestamp(),
+      };
+
+      // 5. Add score document to Firestore
+      await addDoc(collection(firestore, "scoreSubmissions"), scoreData);
+
+      // 6. Success!
       setShowSuccessModal(true);
-      setIsSubmitting(false); // No longer submitting from the user's perspective
       formRef.current?.reset();
       setImagePreview(null);
-      setSelectedGameId("");
-
-      // Keep the file for background upload and clear the state for the next submission
-      const fileToUpload = imageFile;
       setImageFile(null);
-
-      // Perform the slow work in the background (fire and forget)
-      (async () => {
-        try {
-          const storage = getStorage(firestore.app);
-          const storageRef = ref(
-            storage,
-            `score_proofs/${user.uid}_${Date.now()}_${fileToUpload.name}`
-          );
-          const snapshot = await uploadBytes(storageRef, fileToUpload, {
-            contentType: fileToUpload.type,
-          });
-          const imageUrl = await getDownloadURL(snapshot.ref);
-
-          const playerDocRef = doc(firestore, "players", user.uid);
-          const playerDoc = await getDoc(playerDocRef);
-          const playerData = playerDoc.data();
-
-          const game = games.find((g) => g.id === gameId);
-
-          const scoreData = {
-            playerId: user.uid,
-            playerName: playerData?.name ?? "Unknown Player",
-            playerInstagram: playerData?.instagram ?? "",
-            gameId,
-            gameName: game?.name ?? "Unknown Game",
-            scoreValue: Number(scoreValue),
-            imageUrl,
-            status: "pending" as const,
-            submittedAt: serverTimestamp(),
-          };
-
-          await addDoc(collection(firestore, "scoreSubmissions"), scoreData);
-          // On success, do nothing. The user already got a success message.
-        } catch (error) {
-          // If the background task fails, notify the user with a toast.
-          const message =
-            error instanceof Error ? error.message : "Unknown error";
-          toast({
-            variant: "destructive",
-            title: "Background Submission Failed",
-            description: `Your score could not be saved. Please try again. Error: ${message}`,
-          });
-        }
-      })();
+      setSelectedGameId("");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "An unknown error occurred. Check console for details.";
+      console.error("Submission Error:", error);
       toast({
         variant: "destructive",
         title: "Submission Failed",
         description: message,
       });
-      setIsSubmitting(false); // Ensure submitting is false on error
+    } finally {
+      // 7. Reset submitting state
+      setIsSubmitting(false);
     }
   };
 
@@ -199,7 +188,8 @@ function SubmitScoreForm() {
             name="gameId"
             onValueChange={setSelectedGameId}
             value={selectedGameId}
-            disabled={gamesLoading}
+            disabled={gamesLoading || isSubmitting}
+            required
           >
             <SelectTrigger id="gameId">
               <SelectValue placeholder="Select a game..." />
@@ -228,6 +218,7 @@ function SubmitScoreForm() {
             type="number"
             placeholder="Enter your score"
             required
+            disabled={isSubmitting}
           />
         </div>
 
@@ -248,6 +239,7 @@ function SubmitScoreForm() {
             variant="outline"
             className="w-full h-32 flex-col relative"
             onClick={handleCameraClick}
+            disabled={isSubmitting}
           >
             {imagePreview ? (
               <Image
@@ -268,7 +260,7 @@ function SubmitScoreForm() {
         <Button
           type="submit"
           className="w-full text-lg py-6"
-          disabled={isSubmitting}
+          disabled={isSubmitting || !imageFile || !selectedGameId}
         >
           {isSubmitting ? (
             <>
