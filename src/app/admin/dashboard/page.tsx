@@ -72,6 +72,26 @@ import {
 import type { AdminScoreImageVerificationAssistantOutput } from "@/ai/flows/admin-score-image-verification-assistant";
 import { useGames } from "@/lib/hooks/use-games";
 
+// Helper component to avoid hydration mismatch error with date formatting.
+const TimeAgo = ({ timestamp }: { timestamp?: { toDate: () => Date } }) => {
+  const [text, setText] = useState('');
+
+  useEffect(() => {
+    if (timestamp) {
+      setText(formatDistanceToNow(timestamp.toDate(), { addSuffix: true }));
+    } else {
+      setText('N/A');
+    }
+  }, [timestamp]);
+
+  // Render a placeholder on the server and initial client render
+  if (!text) {
+    return <>...</>;
+  }
+
+  return <>{text}</>;
+};
+
 export default function AdminMainPage() {
   const firestore = useFirestore();
   const { games, loading: gamesLoading } = useGames();
@@ -259,10 +279,12 @@ export default function AdminMainPage() {
       const response = await fetch(imageUrl);
       if (!response.ok) throw new Error("Failed to fetch image from storage.");
 
-      const imageBuffer = await response.arrayBuffer();
-      const imageBase64 = Buffer.from(imageBuffer).toString("base64");
-      const mimeType = response.headers.get("content-type") || "image/jpeg";
-      const photoDataUri = `data:${mimeType};base64,${imageBase64}`;
+      const blob = await response.blob();
+      const photoDataUri = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
 
       const aiResult = await adminScoreImageVerificationAssistant({
         photoDataUri,
@@ -417,11 +439,7 @@ export default function AdminMainPage() {
                         {score.scoreValue.toLocaleString()}
                       </TableCell>
                       <TableCell>
-                        {score.submittedAt
-                          ? formatDistanceToNow(score.submittedAt.toDate(), {
-                              addSuffix: true,
-                            })
-                          : "N/A"}
+                        <TimeAgo timestamp={score.submittedAt} />
                       </TableCell>
                       <TableCell>
                         {score.imageUrl ? (
@@ -534,53 +552,4 @@ export default function AdminMainPage() {
               <DialogDescription>
                 This action cannot be undone. This will permanently delete the
                 score submission.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setDeleteModalOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDeleteSubmit}
-                disabled={isSubmitting}
-              >
-                {isSubmitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Delete
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* AI Verify Modal */}
-        <Dialog open={aiVerifyModalOpen} onOpenChange={setAiVerifyModalOpen}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" />
-                AI Score Verification
-              </DialogTitle>
-              <DialogDescription>
-                AI analysis of the submitted photo vs. the entered score.
-              </DialogDescription>
-            </DialogHeader>
-            {renderAiVerificationResult()}
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setAiVerifyModalOpen(false)}
-              >
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </TooltipProvider>
-  );
-}
+              </Dailo...
