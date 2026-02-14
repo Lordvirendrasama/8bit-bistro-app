@@ -7,7 +7,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -16,46 +15,42 @@ import { Play } from "lucide-react";
 
 function PokemonVideoPlayer({ video }: { video: PokemonVideo }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [showResume, setShowResume] = useState(false);
+  const [gameState, setGameState] = useState<'initial' | 'playing' | 'paused' | 'revealed'>('initial');
 
-  const PAUSE_TIME = 5; // seconds
+  const PAUSE_TIME = 5;
 
-  const handleTimeUpdate = () => {
-    if (videoRef.current && videoRef.current.currentTime >= PAUSE_TIME && !videoRef.current.paused) {
-      videoRef.current.pause();
+  const handlePlay = () => {
+    if (videoRef.current) {
+      videoRef.current.play();
+      setGameState('playing');
     }
   };
 
-  const handlePlay = () => {
-    setIsPlaying(true);
-    setShowResume(false);
-  };
-  
-  const handlePause = () => {
-    setIsPlaying(false);
-    // Only show resume if paused by the time limit logic
-    if (videoRef.current && videoRef.current.currentTime >= PAUSE_TIME) {
-        setShowResume(true);
+  const handleTimeUpdate = () => {
+    if (videoRef.current && videoRef.current.currentTime >= PAUSE_TIME && gameState === 'playing') {
+      videoRef.current.pause();
+      setGameState('paused');
     }
   };
 
   const handleResume = () => {
     if (videoRef.current) {
-        videoRef.current.play();
+      videoRef.current.play();
+      setGameState('revealed');
     }
-  }
+  };
 
   const handleVideoEnd = () => {
-    setIsPlaying(false);
-    setShowResume(false);
-  }
+    if (videoRef.current) {
+        videoRef.current.currentTime = 0;
+    }
+    setGameState('initial');
+  };
 
   return (
     <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle>{video.time}</CardTitle>
-        <CardDescription>{video.title}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="relative aspect-video w-full bg-black rounded-md overflow-hidden group">
@@ -64,16 +59,22 @@ function PokemonVideoPlayer({ video }: { video: PokemonVideo }) {
             className="w-full h-full"
             onTimeUpdate={handleTimeUpdate}
             onEnded={handleVideoEnd}
-            onPlay={handlePlay}
-            onPause={handlePause}
             playsInline
-            controls
           >
             <source src={video.src} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
           
-          {showResume && (
+          {gameState === 'initial' && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+              <Button onClick={handlePlay} size="lg" className="font-bold text-lg">
+                <Play className="mr-2 h-6 w-6" />
+                Play
+              </Button>
+            </div>
+          )}
+
+          {gameState === 'paused' && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 gap-4 transition-all">
                   <p className="text-3xl font-headline text-yellow-300 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">Who's That Pokémon?</p>
                   <Button onClick={handleResume} size="lg" className="font-bold text-lg">Reveal</Button>
