@@ -15,7 +15,6 @@ import {
 import { OverallLeaderboard } from "@/components/leaderboard/OverallLeaderboard";
 import { SponsorLogos } from "@/components/SponsorLogos";
 
-// 1. Playlist
 const playlist = [
   "Correct (1).mp4", "Correct (2).mp4", "Fake Pikachu (1).mp4",
   "Fake Pikachu (2).mp4", "Correct (3).mp4", "Fake Pikachu (3).mp4",
@@ -28,51 +27,62 @@ const playlist = [
 
 const PAUSE_TIME = 5;
 
-// 2. Video Player Component
 function WhosThatPokemonPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [gameState, setGameState] = useState<"idle" | "playing" | "paused" | "revealed" | "finished" | "error">("idle");
   const [isDesktop, setIsDesktop] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const animationFrameRef = useRef<number>();
 
   // Check for desktop for host controls
   useEffect(() => {
-    // Ensure window is defined (runs only on client)
     if (typeof window !== "undefined") {
-      const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024); // lg breakpoint
+      const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024);
       checkDesktop();
       window.addEventListener("resize", checkDesktop);
       return () => window.removeEventListener("resize", checkDesktop);
     }
   }, []);
 
-  // 3. 5-Second Freeze Logic
-  const monitorPlayback = useCallback(() => {
-    if (!videoRef.current) return;
+  // New, more reliable pause logic using useEffect to manage the animation loop
+  useEffect(() => {
+    let animationFrameId: number;
 
-    if (videoRef.current.currentTime >= PAUSE_TIME && gameState === 'playing') {
-      videoRef.current.pause();
-      videoRef.current.currentTime = PAUSE_TIME; // Lock it
-      setGameState("paused");
-    } else {
-      // Continue monitoring only if playing
-      if (gameState === 'playing') {
-        animationFrameRef.current = requestAnimationFrame(monitorPlayback);
+    const monitorPlayback = () => {
+      if (videoRef.current && videoRef.current.currentTime >= PAUSE_TIME) {
+        videoRef.current.pause();
+        videoRef.current.currentTime = PAUSE_TIME; // Lock it
+        setGameState('paused');
+      } else {
+        // Only continue the loop if we are still in the 'playing' state
+        if (gameState === 'playing') {
+          animationFrameId = requestAnimationFrame(monitorPlayback);
+        }
       }
+    };
+
+    if (gameState === 'playing') {
+      animationFrameId = requestAnimationFrame(monitorPlayback);
     }
+
+    // Cleanup function to stop the loop when the component unmounts or gameState changes
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
   }, [gameState]);
+
 
   const handlePlay = () => {
     if (!videoRef.current) return;
+    
     videoRef.current.currentTime = 0;
+    videoRef.current.muted = true; // MUST start muted for programmatic play
+    
     const playPromise = videoRef.current.play();
     if (playPromise !== undefined) {
       playPromise
         .then(() => {
-          setGameState("playing");
-          animationFrameRef.current = requestAnimationFrame(monitorPlayback);
+          setGameState("playing"); // Triggers the useEffect for pause logic
         })
         .catch((error) => {
           console.error("Video play failed:", error);
@@ -81,63 +91,49 @@ function WhosThatPokemonPage() {
     }
   };
 
-  // 4. Reveal System
   const handleReveal = () => {
     if (!videoRef.current || gameState !== 'paused') return;
-    
-    videoRef.current.muted = false; // Unmute for the reveal
-    setGameState("revealed");
 
-    // Ensure playback continues from the exact pause time
-    videoRef.current.currentTime = PAUSE_TIME; 
+    // This is a direct user interaction, so we can unmute and play
+    videoRef.current.muted = false; 
     const playPromise = videoRef.current.play();
+
     if (playPromise !== undefined) {
-       playPromise.catch((error) => {
-        console.error("Reveal play failed:", error);
-        handleVideoError();
-      });
+       playPromise
+        .then(() => {
+          setGameState("revealed");
+        })
+        .catch((error) => {
+          console.error("Reveal play failed:", error);
+          handleVideoError();
+        });
     }
   };
 
-  // 5. End of Video
   const handleVideoEnded = () => {
     setGameState("finished");
     setTimeout(() => {
-      // Go to next video but don't autoplay
       setCurrentIndex((prev) => (prev + 1) % playlist.length);
-    }, 2000); // 2-second delay before loading the next video
+    }, 2000); 
   };
 
-  // 6. Error Handling
   const handleVideoError = () => {
-    if (gameState === 'error') return; // Prevent multiple triggers
+    if (gameState === 'error') return;
     setGameState("error");
     setTimeout(() => {
-      // Go to next video but don't autoplay
       setCurrentIndex((prev) => (prev + 1) % playlist.length);
     }, 2000);
   };
-
-  // Cleanup animation frame
-  useEffect(() => {
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, []);
   
-  // Make sure video reloads and is reset when index changes
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.load();
-      videoRef.current.muted = true; // Start every new video muted
-      setGameState('idle'); // Reset state for new video
+      videoRef.current.muted = true; // Always start new videos muted
+      setGameState('idle'); 
     }
   }, [currentIndex]);
 
 
-  // 8. Host Controls
   const handleNext = () => {
     setCurrentIndex((prev) => (prev + 1) % playlist.length);
   };
@@ -147,7 +143,6 @@ function WhosThatPokemonPage() {
   const handleRestart = () => {
     if (videoRef.current) {
         videoRef.current.currentTime = 0;
-        videoRef.current.muted = true; // Also re-mute on restart
     }
     setGameState("idle");
   };
@@ -175,7 +170,7 @@ function WhosThatPokemonPage() {
                   playsInline
                   preload="metadata"
                   controls={false}
-                  muted // Start muted, unmute on reveal
+                  muted
                   onEnded={handleVideoEnded}
                   onError={handleVideoError}
                 >
