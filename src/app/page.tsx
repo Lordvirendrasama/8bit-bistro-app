@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
-  Camera,
+  Upload,
   Loader2,
   PartyPopper,
   ChevronsUpDown,
@@ -530,8 +530,7 @@ function HomePage() {
                 <input
                   type="file"
                   name="image"
-                  accept="image/*"
-                  capture="environment"
+                  accept="image/png, image/jpeg"
                   ref={fileInputRef}
                   onChange={handleImageChange}
                   className="hidden"
@@ -558,8 +557,9 @@ function HomePage() {
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                      <Camera className="h-10 w-10" />
-                      <span className="font-semibold">Tap to open camera</span>
+                      <Upload className="h-10 w-10" />
+                      <span className="font-semibold">Upload Image</span>
+                      <span className="text-xs">PNG or JPG</span>
                     </div>
                   )}
                 </Button>
