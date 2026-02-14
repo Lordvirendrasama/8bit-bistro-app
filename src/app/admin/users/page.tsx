@@ -389,7 +389,14 @@ export default function AdminUsersPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteSubmit} className="bg-destructive hover:bg-destructive/90" disabled={isSubmitting}>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteSubmit();
+              }}
+              className="bg-destructive hover:bg-destructive/90"
+              disabled={isSubmitting}
+            >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Delete
             </AlertDialogAction>
