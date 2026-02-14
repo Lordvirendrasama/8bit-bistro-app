@@ -6,7 +6,7 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import PixelCameraIcon from "@/components/icons/PixelCameraIcon";
 import PixelLeaderboardIcon from "@/components/icons/PixelLeaderboardIcon";
 import PixelVideoIcon from "@/components/icons/PixelVideoIcon";
-import PixelTrophyIcon from "@/components/icons/PixelTrophyIcon";
+import PixelPokemonIcon from "@/components/icons/PixelPokemonIcon";
 
 function DashboardPage() {
   const menuItems = [
@@ -27,6 +27,12 @@ function DashboardPage() {
       title: "Event Media",
       description: "Check out the event's visual playlist.",
       icon: <PixelVideoIcon className="w-16 h-16 mb-4 text-primary" />,
+    },
+    {
+      href: "/whos-that-pokemon",
+      title: "Who's That Pokémon?",
+      description: "A fun video guessing game.",
+      icon: <PixelPokemonIcon className="w-16 h-16 mb-4 text-primary" />,
     },
   ];
 
