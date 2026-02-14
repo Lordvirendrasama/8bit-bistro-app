@@ -28,7 +28,7 @@ export default function Header() {
       <div className="container flex h-40 items-center justify-center">
         <Link href="/dashboard" onClick={handleLogoClick}>
           <Image
-            src="/image-removebg-preview-Picsart-AiimageEnhancer.png"
+            src="/image-removebg-preview-Picsart-AilmageEnhancer.png"
             alt="Floaters and Socks V6 Valentine's Edition"
             width={1200}
             height={300}
