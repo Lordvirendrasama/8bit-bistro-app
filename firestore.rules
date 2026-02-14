@@ -58,10 +58,10 @@ service cloud.firestore {
      */
     match /players/{playerId} {
       allow get: if isOwner(playerId) || isAdmin();
-      allow list: if isAdmin();
-      allow create: if isOwner(playerId) && request.resource.data.id == playerId;
-      allow update: if isExistingOwner(playerId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(playerId);
+      allow list: if isSignedIn() || isAdmin();
+      allow create: if isSignedIn();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     /**
@@ -87,7 +87,7 @@ service cloud.firestore {
       allow read, write: if isAdmin();
 
       // Players can create their own submissions.
-      allow create: if isSignedIn() && request.resource.data.playerId == request.auth.uid;
+      allow create: if isSignedIn();
 
       // All scores are public.
       allow get: if true;

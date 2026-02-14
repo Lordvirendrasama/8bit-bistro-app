@@ -6,13 +6,20 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import PixelCameraIcon from "@/components/icons/PixelCameraIcon";
 import PixelLeaderboardIcon from "@/components/icons/PixelLeaderboardIcon";
 import PixelVideoIcon from "@/components/icons/PixelVideoIcon";
+import PixelTrophyIcon from "@/components/icons/PixelTrophyIcon";
 
 function DashboardPage() {
   const menuItems = [
     {
+      href: "/register",
+      title: "Register Player",
+      description: "Add new players to the event roster.",
+      icon: <PixelTrophyIcon className="w-16 h-16 mb-4 text-primary" />,
+    },
+    {
       href: "/",
-      title: "Enter Player Score",
-      description: "Enter a new score on behalf of a player.",
+      title: "Submit Score",
+      description: "Enter a score for a registered player.",
       icon: <PixelCameraIcon className="w-16 h-16 mb-4 text-primary" />,
     },
     {

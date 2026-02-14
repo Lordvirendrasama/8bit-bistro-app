@@ -5,7 +5,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Camera, Loader2, PartyPopper } from "lucide-react";
+import Link from "next/link";
+import { Camera, Loader2, PartyPopper, PlusCircle } from "lucide-react";
 import {
   getStorage,
   ref,
@@ -39,6 +40,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useGames } from "@/lib/hooks/use-games";
+import { usePlayers } from "@/lib/hooks/use-players";
+import type { Player } from "@/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -90,7 +100,7 @@ const uploadAndAnalyze = async ({
 
     const previousScoresQuery = query(
       collection(firestore, "scoreSubmissions"),
-      where("playerName", "==", scoreData.playerName),
+      where("playerId", "==", scoreData.playerId),
       where("gameId", "==", scoreData.gameId),
       orderBy("submittedAt", "desc")
     );
@@ -136,6 +146,7 @@ function HomePage() {
   const auth = useFirebaseAuthInstance();
   const firestore = useFirestore();
   const { games, loading: gamesLoading } = useGames();
+  const { players, loading: playersLoading } = usePlayers();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -145,11 +156,10 @@ function HomePage() {
   const formRef = useRef<HTMLFormElement>(null);
 
   const [selectedGameId, setSelectedGameId] = useState("");
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [playerName, setPlayerName] = useState("");
-  const [instagram, setInstagram] = useState("");
 
   useEffect(() => {
     if (!userLoading && !user && auth) {
@@ -251,6 +261,11 @@ function HomePage() {
     fileInputRef.current?.click();
   };
 
+  const handlePlayerChange = (playerId: string) => {
+    const player = players.find((p) => p.id === playerId) || null;
+    setSelectedPlayer(player);
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -263,14 +278,14 @@ function HomePage() {
       !imageFile ||
       !selectedGameId ||
       !scoreValue ||
-      !playerName.trim() ||
+      !selectedPlayer ||
       !game
     ) {
       toast({
         variant: "destructive",
         title: "Submission Failed",
         description:
-          "Please select a game, enter a player name and score, and provide an image.",
+          "Please select a player, a game, enter a score, and provide an image.",
       });
       return;
     }
@@ -279,9 +294,9 @@ function HomePage() {
 
     try {
       const scoreData = {
-        playerId: user.uid,
-        playerName: playerName.trim(),
-        playerInstagram: instagram.trim(),
+        playerId: selectedPlayer.id,
+        playerName: selectedPlayer.name,
+        playerInstagram: selectedPlayer.instagram || "",
         gameId: selectedGameId,
         gameName: game.name,
         scoreValue: Number(scoreValue),
@@ -313,8 +328,7 @@ function HomePage() {
       setImagePreview(null);
       setImageFile(null);
       setSelectedGameId("");
-      setPlayerName("");
-      setInstagram("");
+      setSelectedPlayer(null);
     } catch (error) {
       console.error("Submission Error:", error);
       let description = "An unknown error occurred. Please try again.";
@@ -349,40 +363,46 @@ function HomePage() {
         <Card className="shadow-2xl shadow-primary/10">
           <CardHeader>
             <CardTitle className="font-headline text-3xl">
-              Enter High Score
+              Submit High Score
             </CardTitle>
             <CardDescription>
-              Enter a player's score and take a photo of the screen.
+              Select a player, enter their score, and snap a photo of the screen.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
-               <div>
-                  <Label htmlFor="playerName">Player Name</Label>
-                  <Input
-                    id="playerName"
-                    name="playerName"
-                    type="text"
-                    placeholder="Enter player's name"
-                    required
-                    disabled={isSubmitting}
-                    value={playerName}
-                    onChange={(e) => setPlayerName(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="instagram">Instagram (Optional)</Label>
-                  <Input
-                    id="instagram"
-                    name="instagram"
-                    type="text"
-                    placeholder="@playerhandle"
-                    disabled={isSubmitting}
-                    value={instagram}
-                    onChange={(e) => setInstagram(e.target.value)}
-                  />
-                </div>
+              <div>
+                <Label>Player</Label>
+                {playersLoading ? (
+                   <div className="flex justify-center p-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Select
+                      onValueChange={handlePlayerChange}
+                      value={selectedPlayer?.id || ""}
+                      disabled={isSubmitting}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a registered player" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {players.map((player) => (
+                          <SelectItem key={player.id} value={player.id}>
+                            {player.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                     <Button variant="outline" size="icon" asChild>
+                        <Link href="/register">
+                            <PlusCircle />
+                        </Link>
+                    </Button>
+                  </div>
+                )}
+              </div>
 
               <div>
                 <Label>Game</Label>
@@ -470,7 +490,7 @@ function HomePage() {
                   isProcessingImage ||
                   !imageFile ||
                   !selectedGameId ||
-                  !playerName
+                  !selectedPlayer
                 }
               >
                 {isSubmitting ? (
