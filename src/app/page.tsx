@@ -29,7 +29,6 @@ import {
   query,
   where,
   getDocs,
-  orderBy,
   Firestore,
 } from "firebase/firestore";
 import { useFirestore, useAuth as useFirebaseAuthInstance } from "@/firebase";
