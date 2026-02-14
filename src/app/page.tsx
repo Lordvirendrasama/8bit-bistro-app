@@ -61,7 +61,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { proactiveFraudDetectionForScoreSubmissions } from "@/ai/flows/proactive-fraud-detection-for-score-submissions-flow";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
@@ -95,71 +94,6 @@ const uploadImageAndUpdateScore = async ({
   await updateDoc(scoreDocRef, { imageUrl });
 
   return imageUrl;
-};
-
-/**
- * Runs AI fraud analysis in the background for a submission.
- * This function is designed to be called without being awaited.
- */
-const runFraudAnalysis = async ({
-  firestore,
-  docId,
-  imageUrl,
-  scoreData,
-}: {
-  firestore: Firestore;
-  docId: string;
-  imageUrl: string;
-  scoreData: any;
-}) => {
-  try {
-    const playerContext = {
-      name: scoreData.playerName,
-      instagram: scoreData.playerInstagram,
-    };
-
-    const previousScoresQuery = query(
-      collection(firestore, "scoreSubmissions"),
-      where("playerId", "==", scoreData.playerId),
-      where("gameId", "==", scoreData.gameId),
-      orderBy("submittedAt", "desc")
-    );
-    const previousScoresSnapshot = await getDocs(previousScoresQuery);
-    const previousScoresByPlayerForGame = previousScoresSnapshot.docs
-      .map((doc) => {
-        const data = doc.data();
-        if (doc.id === docId || !data.submittedAt) return null;
-        return {
-          scoreValue: data.scoreValue,
-          timestamp: data.submittedAt.toDate().toISOString(),
-        };
-      })
-      .filter((item): item is { scoreValue: number; timestamp: string } =>
-        item !== null
-      );
-
-    const fraudCheckResult = await proactiveFraudDetectionForScoreSubmissions({
-      currentSubmission: {
-        playerId: scoreData.playerId,
-        gameName: scoreData.gameName,
-        scoreValue: scoreData.scoreValue,
-        imageURL: imageUrl,
-        timestamp: new Date().toISOString(),
-      },
-      playerContext,
-      previousScoresByPlayerForGame,
-    });
-
-    if (fraudCheckResult.isSuspicious) {
-      const scoreDocRef = doc(firestore, "scoreSubmissions", docId);
-      await updateDoc(scoreDocRef, {
-        isSuspicious: true,
-        suspicionReason: `${fraudCheckResult.reason} (Confidence: ${fraudCheckResult.confidence}%)`,
-      });
-    }
-  } catch (error) {
-    console.error("Error in background fraud analysis task:", error);
-  }
 };
 
 const AddPlayerModal = ({
@@ -504,7 +438,7 @@ function HomePage() {
       const imageToUpload = imageFile; // Hold a reference to the current image file
 
       // 2. Now, await the image upload and the document update.
-      const imageUrl = await uploadImageAndUpdateScore({
+      await uploadImageAndUpdateScore({
         firestore,
         storage: getStorage(firestore.app),
         docId: docRef.id,
@@ -514,14 +448,6 @@ function HomePage() {
       
       // 3. Only after the upload is successful, show the success modal.
       setShowSuccessModal(true);
-
-      // 4. Run the fraud analysis in the background (fire-and-forget).
-      runFraudAnalysis({
-        firestore,
-        docId: docRef.id,
-        imageUrl,
-        scoreData,
-      });
 
       // Reset form for the next submission
       (event.target as HTMLFormElement).scoreValue.value = "";

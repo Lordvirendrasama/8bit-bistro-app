@@ -24,6 +24,4 @@ export type Score = {
   scoreValue: number;
   imageUrl?: string;
   submittedAt: Timestamp;
-  isSuspicious?: boolean;
-  suspicionReason?: string;
 };
