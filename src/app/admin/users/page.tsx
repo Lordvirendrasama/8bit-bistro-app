@@ -71,7 +71,10 @@ export default function AdminUsersPage() {
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
-  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  
+  const [playerToEdit, setPlayerToEdit] = useState<Player | null>(null);
+  const [playerToDelete, setPlayerToDelete] = useState<Player | null>(null);
+
   const [editedName, setEditedName] = useState("");
   const [editedInstagram, setEditedInstagram] = useState("");
   const [editedGroupSize, setEditedGroupSize] = useState("");
@@ -142,7 +145,7 @@ export default function AdminUsersPage() {
   );
 
   const openEditModal = (player: Player) => {
-    setSelectedPlayer(player);
+    setPlayerToEdit(player);
     setEditedName(player.name);
     setEditedInstagram(player.instagram || "");
     setEditedGroupSize(String(player.groupSize));
@@ -150,7 +153,7 @@ export default function AdminUsersPage() {
   };
 
   const handleEditSubmit = async () => {
-    if (!selectedPlayer || isSubmitting || !firestore) return;
+    if (!playerToEdit || isSubmitting || !firestore) return;
     
     const groupSize = parseInt(editedGroupSize, 10);
     if (isNaN(groupSize) || groupSize <= 0) {
@@ -164,7 +167,7 @@ export default function AdminUsersPage() {
     
     setIsSubmitting(true);
     try {
-      await updateDoc(doc(firestore, "players", selectedPlayer.id), {
+      await updateDoc(doc(firestore, "players", playerToEdit.id), {
         name: editedName.trim(),
         instagram: editedInstagram.trim(),
         groupSize,
@@ -184,15 +187,15 @@ export default function AdminUsersPage() {
   };
 
   const openDeleteAlert = (player: Player) => {
-    setSelectedPlayer(player);
+    setPlayerToDelete(player);
     setDeleteAlertOpen(true);
   };
 
   const handleDeleteSubmit = async () => {
-    if (!selectedPlayer || !firestore) return;
+    if (!playerToDelete || !firestore) return;
     setIsSubmitting(true);
     try {
-      await deleteDoc(doc(firestore, "players", selectedPlayer.id));
+      await deleteDoc(doc(firestore, "players", playerToDelete.id));
       toast({ title: "Success", description: "Player deleted." });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -204,7 +207,6 @@ export default function AdminUsersPage() {
     } finally {
       setIsSubmitting(false);
       setDeleteAlertOpen(false);
-      setSelectedPlayer(null);
     }
   };
 
@@ -322,12 +324,17 @@ export default function AdminUsersPage() {
         </Card>
       </div>
 
-      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+      <Dialog open={editModalOpen} onOpenChange={(isOpen) => {
+        setEditModalOpen(isOpen);
+        if (!isOpen) {
+            setPlayerToEdit(null);
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Player</DialogTitle>
             <DialogDescription>
-              Update the details for {selectedPlayer?.name}.
+              Update the details for {playerToEdit?.name}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -380,12 +387,17 @@ export default function AdminUsersPage() {
         </DialogContent>
       </Dialog>
       
-      <AlertDialog open={deleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
+      <AlertDialog open={deleteAlertOpen} onOpenChange={(isOpen) => {
+          setDeleteAlertOpen(isOpen);
+          if (!isOpen) {
+              setPlayerToDelete(null);
+          }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the player "{selectedPlayer?.name}".
+              This action cannot be undone. This will permanently delete the player "{playerToDelete?.name}".
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
