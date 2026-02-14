@@ -30,7 +30,7 @@ function DashboardPage() {
     },
     {
       href: "/whos-that-pokemon",
-      title: "Who's That Pokémon?",
+      title: "Who's That Pokemon?",
       description: "A fun video guessing game.",
       icon: <PixelPokemonIcon className="w-16 h-16 mb-4 text-primary" />,
     },
