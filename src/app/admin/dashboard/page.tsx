@@ -21,6 +21,7 @@ import {
   Sparkles,
   Loader2,
   PlusCircle,
+  ImageOff,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -440,12 +441,12 @@ export default function AdminMainPage() {
                         ) : (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" disabled>
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                              </Button>
+                              <div className="flex h-16 w-28 items-center justify-center rounded-md border border-dashed bg-muted/50">
+                                <ImageOff className="h-6 w-6 text-muted-foreground" />
+                              </div>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>Image processing...</p>
+                              <p>No image submitted.</p>
                             </TooltipContent>
                           </Tooltip>
                         )}
