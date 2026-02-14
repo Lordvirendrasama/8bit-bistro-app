@@ -151,7 +151,6 @@ export default function AdminUsersPage() {
 
   const handleEditSubmit = async () => {
     if (!selectedPlayer || isSubmitting || !firestore) return;
-    setIsSubmitting(true);
     
     const groupSize = parseInt(editedGroupSize, 10);
     if (isNaN(groupSize) || groupSize <= 0) {
@@ -160,10 +159,10 @@ export default function AdminUsersPage() {
         description: "Please enter a valid positive number for group size.",
         variant: "destructive",
       });
-      setIsSubmitting(false);
       return;
     }
-
+    
+    setIsSubmitting(true);
     try {
       await updateDoc(doc(firestore, "players", selectedPlayer.id), {
         name: editedName.trim(),
@@ -179,8 +178,9 @@ export default function AdminUsersPage() {
         description: `Failed to update player: ${message}`,
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   const openDeleteAlert = (player: Player) => {
@@ -189,13 +189,11 @@ export default function AdminUsersPage() {
   };
 
   const handleDeleteSubmit = async () => {
-    if (!selectedPlayer || isSubmitting || !firestore) return;
+    if (!selectedPlayer || !firestore) return;
     setIsSubmitting(true);
     try {
       await deleteDoc(doc(firestore, "players", selectedPlayer.id));
       toast({ title: "Success", description: "Player deleted." });
-      setDeleteAlertOpen(false);
-      setSelectedPlayer(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       toast({
@@ -203,8 +201,11 @@ export default function AdminUsersPage() {
         description: `Failed to delete player: ${message}`,
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
+      setDeleteAlertOpen(false);
+      setSelectedPlayer(null);
     }
-    setIsSubmitting(false);
   };
 
   if (loadingPlayers) {
