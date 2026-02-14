@@ -76,15 +76,6 @@ export default function Footer() {
               height={150}
               className="h-20 w-auto"
             />
-            <Link href="/admin/settings">
-              <Image
-                src="/kalakari-logo.png"
-                alt="Kalakari Cartel Logo"
-                width={150}
-                height={150}
-                className="h-20 w-auto invert"
-              />
-            </Link>
         </div>
       </div>
     </footer>
@@ -111,15 +102,6 @@ export default function Footer() {
           height={150}
           className="h-20 w-auto"
         />
-        <Link href="/admin/settings">
-          <Image
-            src="/kalakari-logo.png"
-            alt="Kalakari Cartel Logo"
-            width={150}
-            height={150}
-            className="h-20 w-auto invert"
-          />
-        </Link>
       </div>
     </footer>
   );
