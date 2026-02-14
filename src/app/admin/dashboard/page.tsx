@@ -404,17 +404,6 @@ export default function AdminMainPage() {
                               {score.playerInstagram}
                             </div>
                           </div>
-                          {score.isSuspicious && (
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <AlertCircle className="h-4 w-4 text-amber-400" />
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                <p className="font-bold">Suspicious Activity</p>
-                                <p>{score.suspicionReason}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
                         </div>
                       </TableCell>
                       <TableCell>{score.gameName}</TableCell>
