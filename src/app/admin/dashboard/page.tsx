@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
-import { useFirestore } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import type { Score } from "@/types";
 import { adminScoreImageVerificationAssistant } from "@/ai/flows/admin-score-image-verification-assistant";
 
@@ -70,12 +70,17 @@ import {
 } from "@/components/ui/tooltip";
 import type { AdminScoreImageVerificationAssistantOutput } from "@/ai/flows/admin-score-image-verification-assistant";
 import { useGames } from "@/lib/hooks/use-games";
-import { useScoreSubmissions } from "@/lib/hooks/use-score-submissions";
 
 export default function AdminMainPage() {
   const firestore = useFirestore();
   const { games, loading: gamesLoading } = useGames();
-  const { scores, loading: loadingScores } = useScoreSubmissions();
+  
+  const scoresQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "scoreSubmissions"), orderBy("submittedAt", "desc"));
+  }, [firestore]);
+
+  const { data: scores, isLoading: loadingScores } = useCollection<Score>(scoresQuery);
 
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Score;
