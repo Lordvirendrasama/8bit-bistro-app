@@ -1,23 +1,12 @@
 'use client';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import Logo from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/firebase';
 
 export default function AdminHeader() {
   const pathname = usePathname();
-  const router = useRouter();
-  const auth = useAuth();
-
-
-  const handleLogout = () => {
-    if (auth) {
-      auth.signOut();
-      router.push('/admin/login');
-    }
-  };
 
   const navItems = [
     { href: '/admin/dashboard', label: 'Main' },
@@ -36,9 +25,6 @@ export default function AdminHeader() {
             <div className="flex items-center justify-self-end gap-2">
                 <Button variant="outline" size="sm" asChild>
                 <Link href="/dashboard">View App</Link>
-                </Button>
-                <Button variant="ghost" size="sm" onClick={handleLogout}>
-                Logout
                 </Button>
             </div>
         </div>

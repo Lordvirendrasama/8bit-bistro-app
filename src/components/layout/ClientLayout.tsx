@@ -18,16 +18,6 @@ export default function ClientLayout({
   const pathname = usePathname();
   const isAdminPage = pathname.startsWith('/admin');
 
-  // The login page doesn't get a header.
-  if (pathname === '/admin/login') {
-    return (
-      <>
-        <main className="flex-grow">{children}</main>
-        <Toaster />
-      </>
-    );
-  }
-
   return (
     <>
       {isAdminPage ? <AdminHeader /> : <Header />}

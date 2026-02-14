@@ -4,18 +4,27 @@ import { usePathname, useRouter } from 'next/navigation';
 import Logo from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/firebase';
 import Image from 'next/image';
+import { useState, useEffect } from 'react';
 
 export default function Footer() {
   const pathname = usePathname();
   const router = useRouter();
-  const auth = useAuth();
+  const [logoClicks, setLogoClicks] = useState(0);
 
-  const handleLogout = () => {
-    if (auth) {
-      auth.signOut();
-      router.push('/admin/login');
+  useEffect(() => {
+    if (logoClicks >= 7) {
+      router.push("/admin/dashboard");
+      setLogoClicks(0);
+    }
+  }, [logoClicks, router]);
+
+  const handleSecretClick = (e: React.MouseEvent) => {
+    if (pathname.startsWith('/admin')) return;
+
+    setLogoClicks((prevClicks) => prevClicks + 1);
+    if (logoClicks + 1 >= 7) {
+      e.preventDefault();
     }
   };
 
@@ -25,10 +34,6 @@ export default function Footer() {
     { href: '/admin/games', label: 'Games' },
     { href: '/admin/settings', label: 'Settings' },
   ];
-  
-  if (pathname === '/admin/login') {
-    return null;
-  }
 
   if (pathname.startsWith('/admin')) {
     return (
@@ -53,9 +58,6 @@ export default function Footer() {
         <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" asChild>
             <Link href="/dashboard">View App</Link>
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-            Logout
             </Button>
         </div>
         <div className="mt-4 w-full flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
@@ -89,7 +91,7 @@ export default function Footer() {
   return (
     <footer className="w-full py-8 mt-auto">
       <div className="w-full flex flex-wrap items-center justify-center gap-x-12 gap-y-6 px-4">
-        <Link href="/dashboard">
+        <Link href="/dashboard" onClick={handleSecretClick}>
           <Logo className="h-20" />
         </Link>
         <Link href="/dashboard">

@@ -16,8 +16,8 @@
  *   admin privileges to the corresponding user UID.
  *
  * Key Security Decisions:
- * - Admin Access: Administrative privileges are granted to a specific email address.
- *   This is a simple role-based access control (RBAC) pattern.
+ * - Admin Access: Administrative privileges are now open, allowing any user to perform
+ *   admin actions.
  * - Public Data: The `/games` collection and the `/appConfig/event` document are
  *   publicly readable to allow any user or client to fetch essential app information.
  * - Mixed-Access for Submissions: The `/scoreSubmissions` collection is publicly listable
@@ -43,10 +43,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // IMPORTANT: This rule grants admin access to a specific email address.
-      // For this to work, you MUST create a user in your Firebase Authentication
-      // console with the email 'viren@example.com'.
-      return isSignedIn() && request.auth.token.email == 'viren@example.com';
+      return true;
     }
 
     /**
