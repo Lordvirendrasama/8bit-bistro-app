@@ -10,12 +10,12 @@ import {
   orderBy,
 } from "firebase/firestore";
 import Link from "next/link";
+import Image from "next/image";
 import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
   Edit,
-  FileImage,
   MoreVertical,
   Trash2,
   Sparkles,
@@ -441,15 +441,19 @@ export default function AdminMainPage() {
                       </TableCell>
                       <TableCell>
                         {score.imageUrl ? (
-                          <Button variant="ghost" size="icon" asChild>
-                            <Link
-                              href={score.imageUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <FileImage className="h-5 w-5" />
-                            </Link>
-                          </Button>
+                          <Link
+                            href={score.imageUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="relative block h-16 w-28 overflow-hidden rounded-md border group"
+                          >
+                            <Image
+                              src={score.imageUrl}
+                              alt={`Score proof for ${score.playerName}`}
+                              fill
+                              className="object-cover transition-transform group-hover:scale-110"
+                            />
+                          </Link>
                         ) : (
                           <Tooltip>
                             <TooltipTrigger asChild>
