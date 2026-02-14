@@ -4,13 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { useAuth as useUserAuth } from "@/hooks/use-auth";
-import { useAuth } from "@/firebase";
-import { Button } from "@/components/ui/button";
 
 export default function Header() {
-  const { user } = useUserAuth();
-  const auth = useAuth();
   const router = useRouter();
   const [logoClicks, setLogoClicks] = useState(0);
 
@@ -27,18 +22,11 @@ export default function Header() {
       e.preventDefault();
     }
   };
-  
-  const handleSignOut = () => {
-    if (auth) {
-        auth.signOut();
-    }
-  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container grid h-40 grid-cols-[1fr_auto_1fr] items-center">
-        <div />
-        <Link href="/dashboard" onClick={handleLogoClick} className="justify-self-center">
+      <div className="container flex h-40 items-center justify-center">
+        <Link href="/dashboard" onClick={handleLogoClick}>
           <Image
             src="/image-removebg-preview-Picsart-AiimageEnhancer.png"
             alt="Floaters and Socks V6 Valentine's Edition"
@@ -48,14 +36,6 @@ export default function Header() {
             className="h-32 w-auto"
           />
         </Link>
-        <div className="flex items-center justify-self-end gap-2">
-            <Button variant="outline" size="sm" asChild>
-                <Link href="/admin/login">Admin</Link>
-            </Button>
-            {user && (
-                <Button variant="ghost" size="sm" onClick={handleSignOut}>Sign Out</Button>
-            )}
-        </div>
       </div>
     </header>
   );
