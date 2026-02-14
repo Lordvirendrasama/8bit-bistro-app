@@ -66,40 +66,53 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 /**
- * Handles background tasks for a submission: image upload and AI fraud analysis.
- * This function is designed to be called without being awaited.
+ * Uploads an image, updates the corresponding Firestore document with the URL.
+ * This function should be awaited to ensure the image URL is saved.
  */
-const uploadAndAnalyze = async ({
+const uploadImageAndUpdateScore = async ({
   firestore,
   storage,
   docId,
   imageFile,
-  scoreData,
   user,
 }: {
   firestore: Firestore;
   storage: FirebaseStorage;
   docId: string;
   imageFile: File;
-  scoreData: any;
   user: User;
+}): Promise<string> => {
+  const storageRef = ref(
+    storage,
+    `score_proofs/${user.uid}_${Date.now()}_${imageFile.name}`
+  );
+  const snapshot = await uploadBytes(storageRef, imageFile, {
+    contentType: imageFile.type,
+  });
+  const imageUrl = await getDownloadURL(snapshot.ref);
+
+  const scoreDocRef = doc(firestore, "scoreSubmissions", docId);
+  await updateDoc(scoreDocRef, { imageUrl });
+
+  return imageUrl;
+};
+
+/**
+ * Runs AI fraud analysis in the background for a submission.
+ * This function is designed to be called without being awaited.
+ */
+const runFraudAnalysis = async ({
+  firestore,
+  docId,
+  imageUrl,
+  scoreData,
+}: {
+  firestore: Firestore;
+  docId: string;
+  imageUrl: string;
+  scoreData: any;
 }) => {
   try {
-    // 1. Upload image
-    const storageRef = ref(
-      storage,
-      `score_proofs/${user.uid}_${Date.now()}_${imageFile.name}`
-    );
-    const snapshot = await uploadBytes(storageRef, imageFile, {
-      contentType: imageFile.type,
-    });
-    const imageUrl = await getDownloadURL(snapshot.ref);
-
-    // 2. Update doc with image URL
-    const scoreDocRef = doc(firestore, "scoreSubmissions", docId);
-    await updateDoc(scoreDocRef, { imageUrl });
-
-    // 3. Proactive Fraud Detection
     const playerContext = {
       name: scoreData.playerName,
       instagram: scoreData.playerInstagram,
@@ -138,13 +151,14 @@ const uploadAndAnalyze = async ({
     });
 
     if (fraudCheckResult.isSuspicious) {
+      const scoreDocRef = doc(firestore, "scoreSubmissions", docId);
       await updateDoc(scoreDocRef, {
         isSuspicious: true,
         suspicionReason: `${fraudCheckResult.reason} (Confidence: ${fraudCheckResult.confidence}%)`,
       });
     }
   } catch (error) {
-    console.error("Error in background submission task:", error);
+    console.error("Error in background fraud analysis task:", error);
   }
 };
 
@@ -481,26 +495,35 @@ function HomePage() {
         submittedAt: serverTimestamp(),
       };
 
+      // 1. Create the document in Firestore first.
       const docRef = await addDoc(
         collection(firestore, "scoreSubmissions"),
         scoreData
       );
+      
+      const imageToUpload = imageFile; // Hold a reference to the current image file
 
-      setShowSuccessModal(true);
-
-      const imageToUpload = imageFile;
-      const storage = getStorage(firestore.app);
-
-      uploadAndAnalyze({
+      // 2. Now, await the image upload and the document update.
+      const imageUrl = await uploadImageAndUpdateScore({
         firestore,
-        storage,
+        storage: getStorage(firestore.app),
         docId: docRef.id,
         imageFile: imageToUpload,
-        scoreData,
         user,
       });
+      
+      // 3. Only after the upload is successful, show the success modal.
+      setShowSuccessModal(true);
 
-      // Reset only score and photo, keep player and game selected
+      // 4. Run the fraud analysis in the background (fire-and-forget).
+      runFraudAnalysis({
+        firestore,
+        docId: docRef.id,
+        imageUrl,
+        scoreData,
+      });
+
+      // Reset form for the next submission
       (event.target as HTMLFormElement).scoreValue.value = "";
       setImagePreview(null);
       setImageFile(null);
