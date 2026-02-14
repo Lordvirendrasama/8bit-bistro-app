@@ -28,7 +28,12 @@ import {
   where,
   getDocs,
 } from "firebase/firestore";
-import { useFirestore, useAuth as useFirebaseAuthInstance } from "@/firebase";
+import {
+  useFirestore,
+  useAuth as useFirebaseAuthInstance,
+  errorEmitter,
+  FirestorePermissionError,
+} from "@/firebase";
 import { signInAnonymously } from "firebase/auth";
 
 import {
@@ -76,7 +81,7 @@ const AddPlayerModal = ({
   const [isAddingPlayer, setIsAddingPlayer] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
-  const handleAddPlayerSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleAddPlayerSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!firestore) return;
 
@@ -103,43 +108,65 @@ const AddPlayerModal = ({
     }
 
     setIsAddingPlayer(true);
-    try {
-      const playersRef = collection(firestore, "players");
-      const q = query(playersRef, where("name", "==", name));
-      const querySnapshot = await getDocs(q);
+    const playersRef = collection(firestore, "players");
+    const q = query(playersRef, where("name", "==", name));
 
-      if (!querySnapshot.empty) {
+    getDocs(q)
+      .then((querySnapshot) => {
+        if (!querySnapshot.empty) {
+          toast({
+            variant: "destructive",
+            title: "Player Exists",
+            description: `A player with the name "${name}" is already registered.`,
+          });
+          setIsAddingPlayer(false);
+          return;
+        }
+
+        const playerData = {
+          name,
+          instagram,
+          groupSize,
+          createdAt: serverTimestamp(),
+        };
+
+        addDoc(playersRef, playerData)
+          .then(() => {
+            toast({
+              title: "Player Registered!",
+              description: `You can now submit a score for ${name}.`,
+            });
+            onPlayerAdded(name);
+            formRef.current?.reset();
+          })
+          .catch((firestoreError) => {
+            console.error("Add Player Error:", firestoreError);
+            const permissionError = new FirestorePermissionError({
+              path: playersRef.path,
+              operation: "create",
+              requestResourceData: playerData,
+            });
+            errorEmitter.emit("permission-error", permissionError);
+
+            toast({
+              variant: "destructive",
+              title: "Registration Error",
+              description: "Could not register the new player.",
+            });
+          })
+          .finally(() => {
+            setIsAddingPlayer(false);
+          });
+      })
+      .catch((error) => {
+        console.error("Error checking for player:", error);
         toast({
           variant: "destructive",
-          title: "Player Exists",
-          description: `A player with the name "${name}" is already registered.`,
+          title: "Registration Error",
+          description: "Could not check for existing players.",
         });
         setIsAddingPlayer(false);
-        return;
-      }
-
-      await addDoc(playersRef, {
-        name,
-        instagram,
-        groupSize,
-        createdAt: serverTimestamp(),
       });
-
-      toast({
-        title: "Player Registered!",
-        description: `You can now submit a score for ${name}.`,
-      });
-      onPlayerAdded(name);
-      formRef.current?.reset();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      toast({
-        variant: "destructive",
-        title: "Registration Error",
-        description: message,
-      });
-    }
-    setIsAddingPlayer(false);
   };
 
   return (
@@ -220,6 +247,7 @@ function HomePage() {
   const router = useRouter();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedGameId, setSelectedGameId] = useState("");
@@ -296,7 +324,7 @@ function HomePage() {
     if (
       !user ||
       !firestore ||
-      !imagePreview || // Changed check from imageFile to imagePreview
+      !imagePreview ||
       !selectedGameId ||
       !scoreValue ||
       !selectedPlayer ||
@@ -313,54 +341,68 @@ function HomePage() {
 
     setIsSubmitting(true);
 
+    let imageUrl = "";
     try {
       const storage = getStorage(firestore.app);
-      
       const storageRef = ref(storage, `score_proofs/${user.uid}_${Date.now()}`);
-      
-      // Use uploadString with the data URL from imagePreview
-      const snapshot = await uploadString(storageRef, imagePreview, 'data_url');
-      const imageUrl = await getDownloadURL(snapshot.ref);
-
-      const scoreData = {
-        playerId: selectedPlayer.id,
-        playerName: selectedPlayer.name,
-        playerInstagram: selectedPlayer.instagram || "",
-        gameId: selectedGameId,
-        gameName: game.name,
-        scoreValue: Number(scoreValue),
-        submittedAt: serverTimestamp(),
-        imageUrl: imageUrl,
-      };
-
-      await addDoc(
-        collection(firestore, "scoreSubmissions"),
-        scoreData
-      );
-      
-      setShowSuccessModal(true);
-
-      // Reset form
-      (event.target as HTMLFormElement).scoreValue.value = "";
-      setImagePreview(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    } catch (error) {
-      console.error("Submission Error:", error);
-      let description = "An unknown error occurred. Please try again.";
-      if (error instanceof Error) {
-        description = error.message;
-      }
-
+      const snapshot = await uploadString(storageRef, imagePreview, "data_url");
+      imageUrl = await getDownloadURL(snapshot.ref);
+    } catch (storageError) {
+      console.error("Storage Upload Error:", storageError);
       toast({
         variant: "destructive",
-        title: "Submission Failed",
-        description: description,
+        title: "Image Upload Failed",
+        description:
+          "Could not upload the image. Please check your connection and try again.",
       });
+      setIsSubmitting(false);
+      return;
     }
 
-    setIsSubmitting(false);
+    const scoreData = {
+      playerId: selectedPlayer.id,
+      playerName: selectedPlayer.name,
+      playerInstagram: selectedPlayer.instagram || "",
+      gameId: selectedGameId,
+      gameName: game.name,
+      scoreValue: Number(scoreValue),
+      submittedAt: serverTimestamp(),
+      imageUrl: imageUrl,
+    };
+
+    const scoreSubmissionsRef = collection(firestore, "scoreSubmissions");
+
+    addDoc(scoreSubmissionsRef, scoreData)
+      .then(() => {
+        setShowSuccessModal(true);
+        // Reset form
+        formRef.current?.reset();
+        setImagePreview(null);
+        setSelectedGameId("");
+        setSelectedPlayer(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      })
+      .catch((firestoreError) => {
+        console.error("Firestore Write Error:", firestoreError);
+        const permissionError = new FirestorePermissionError({
+          path: scoreSubmissionsRef.path,
+          operation: "create",
+          requestResourceData: scoreData,
+        });
+        errorEmitter.emit("permission-error", permissionError);
+
+        toast({
+          variant: "destructive",
+          title: "Submission Failed",
+          description:
+            "There was an error saving your score. Please try again.",
+        });
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+      });
   };
 
   if (userLoading || !user) {
@@ -384,7 +426,7 @@ function HomePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <Label>Player</Label>
                 {playersLoading ? (
