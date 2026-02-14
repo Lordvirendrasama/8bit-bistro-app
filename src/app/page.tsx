@@ -567,9 +567,20 @@ function HomePage() {
                         className="w-full justify-between"
                         disabled={isSubmitting}
                       >
-                        {selectedPlayer
-                          ? selectedPlayer.name
-                          : "Select a player..."}
+                        <span className="truncate">
+                          {selectedPlayer ? (
+                            <>
+                              {selectedPlayer.name}
+                              {selectedPlayer.instagram && (
+                                <span className="ml-1 text-muted-foreground">
+                                  ({selectedPlayer.instagram})
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            "Select a player..."
+                          )}
+                        </span>
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
@@ -600,7 +611,14 @@ function HomePage() {
                                     : "opacity-0"
                                 )}
                               />
-                              {player.name}
+                               <span className="truncate">
+                                {player.name}
+                                {player.instagram && (
+                                  <span className="ml-1 text-muted-foreground">
+                                    ({player.instagram})
+                                  </span>
+                                )}
+                              </span>
                             </div>
                           ))
                         ) : (
