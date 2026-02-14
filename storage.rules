@@ -1,0 +1,12 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow authenticated users to upload images to the score_proofs directory.
+    // Also allow public read access so images can be displayed in the app.
+    match /score_proofs/{allPaths=**} {
+      allow read;
+      allow write: if request.auth != null;
+    }
+  }
+}
