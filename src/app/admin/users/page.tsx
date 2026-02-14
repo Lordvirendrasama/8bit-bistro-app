@@ -195,6 +195,7 @@ export default function AdminUsersPage() {
       await deleteDoc(doc(firestore, "players", selectedPlayer.id));
       toast({ title: "Success", description: "Player deleted." });
       setDeleteAlertOpen(false);
+      setSelectedPlayer(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       toast({
