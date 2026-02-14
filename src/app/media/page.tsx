@@ -2,29 +2,29 @@
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Card, CardContent } from "@/components/ui/card";
-import YouTube from 'react-youtube';
+import YouTube, { YouTubeProps } from 'react-youtube';
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 function MediaPage() {
   const playlistId = "PL94D12C64C0DCE72F";
-  const [origin, setOrigin] = useState<string | undefined>(undefined);
+  const [opts, setOpts] = useState<YouTubeProps['opts'] | null>(null);
 
   useEffect(() => {
-    // This code runs only on the client
-    setOrigin(window.location.origin);
-  }, []);
-
-  const opts = {
-    height: '100%',
-    width: '100%',
-    playerVars: {
-      autoplay: 1,
-      listType: 'playlist',
-      list: playlistId,
-      origin: origin,
-    },
-  };
+    // This effect runs only on the client, after the component has mounted.
+    // This is where we can safely access `window`.
+    setOpts({
+      height: '100%',
+      width: '100%',
+      playerVars: {
+        autoplay: 1,
+        listType: 'playlist',
+        list: playlistId,
+        // window.location.origin is now guaranteed to be available.
+        origin: window.location.origin,
+      },
+    });
+  }, [playlistId]); // The effect will re-run if the playlistId changes.
 
   return (
     <div className="min-h-screen pt-10 pb-10">
@@ -35,7 +35,7 @@ function MediaPage() {
         <Card className="overflow-hidden shadow-2xl shadow-primary/10">
           <CardContent className="p-0">
             <div className="aspect-video w-full bg-black relative">
-              {origin ? (
+              {opts ? (
                 <YouTube
                   opts={opts}
                   className="absolute top-0 left-0 w-full h-full"
