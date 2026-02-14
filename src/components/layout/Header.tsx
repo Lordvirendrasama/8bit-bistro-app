@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Logo from "@/components/Logo";
+import Image from "next/image";
 import { useAuth as useUserAuth } from "@/hooks/use-auth";
 import { useAuth } from "@/firebase";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,14 @@ export default function Header() {
       <div className="container grid h-40 grid-cols-[1fr_auto_1fr] items-center">
         <div />
         <Link href="/dashboard" onClick={handleLogoClick} className="justify-self-center">
-          <Logo />
+          <Image
+            src="/image-removebg-preview-Picsart-AilmageEnhancer.png"
+            alt="The 8Bit Bistro Header"
+            width={1200}
+            height={400}
+            priority
+            className="h-32 w-auto"
+          />
         </Link>
         <div className="flex items-center justify-self-end gap-2">
             <Button variant="outline" size="sm" asChild>
