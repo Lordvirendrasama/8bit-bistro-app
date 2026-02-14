@@ -35,6 +35,8 @@ function PokemonVideoPlayer({ video }: { video: PokemonVideo }) {
 
   const handleResume = () => {
     if (videoRef.current) {
+      // Unmute and play
+      videoRef.current.muted = false;
       videoRef.current.play();
       setGameState('revealed');
     }
@@ -42,7 +44,9 @@ function PokemonVideoPlayer({ video }: { video: PokemonVideo }) {
 
   const handleVideoEnd = () => {
     if (videoRef.current) {
+        // Reset for next playthrough
         videoRef.current.currentTime = 0;
+        videoRef.current.muted = true; // Mute it again for the next play
     }
     setGameState('initial');
   };
@@ -60,6 +64,7 @@ function PokemonVideoPlayer({ video }: { video: PokemonVideo }) {
             onTimeUpdate={handleTimeUpdate}
             onEnded={handleVideoEnd}
             playsInline
+            muted // Start muted to allow programmatic play
           >
             <source src={video.src} type="video/mp4" />
             Your browser does not support the video tag.
