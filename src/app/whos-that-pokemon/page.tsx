@@ -12,7 +12,6 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { OverallLeaderboard } from "@/components/leaderboard/OverallLeaderboard";
 import { SponsorLogos } from "@/components/SponsorLogos";
 
@@ -58,7 +57,10 @@ function WhosThatPokemonPage() {
       videoRef.current.currentTime = PAUSE_TIME; // Lock it
       setGameState("paused");
     } else {
-      animationFrameRef.current = requestAnimationFrame(monitorPlayback);
+      // Continue monitoring only if playing
+      if (gameState === 'playing') {
+        animationFrameRef.current = requestAnimationFrame(monitorPlayback);
+      }
     }
   }, [gameState]);
 
@@ -83,7 +85,9 @@ function WhosThatPokemonPage() {
   const handleReveal = () => {
     if (!videoRef.current || gameState !== 'paused') return;
     
+    videoRef.current.muted = false; // Unmute for the reveal
     setGameState("revealed");
+
     // Ensure playback continues from the exact pause time
     videoRef.current.currentTime = PAUSE_TIME; 
     const playPromise = videoRef.current.play();
@@ -101,7 +105,7 @@ function WhosThatPokemonPage() {
     setTimeout(() => {
       // Go to next video but don't autoplay
       setCurrentIndex((prev) => (prev + 1) % playlist.length);
-    }, 2000);
+    }, 2000); // 2-second delay before loading the next video
   };
 
   // 6. Error Handling
@@ -123,10 +127,11 @@ function WhosThatPokemonPage() {
     };
   }, []);
   
-  // Make sure video reloads when index changes
+  // Make sure video reloads and is reset when index changes
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.load();
+      videoRef.current.muted = true; // Start every new video muted
       setGameState('idle'); // Reset state for new video
     }
   }, [currentIndex]);
@@ -140,7 +145,10 @@ function WhosThatPokemonPage() {
     setCurrentIndex((prev) => (prev - 1 + playlist.length) % playlist.length);
   };
   const handleRestart = () => {
-    if (videoRef.current) videoRef.current.currentTime = 0;
+    if (videoRef.current) {
+        videoRef.current.currentTime = 0;
+        videoRef.current.muted = true; // Also re-mute on restart
+    }
     setGameState("idle");
   };
 
@@ -154,6 +162,9 @@ function WhosThatPokemonPage() {
         </div>
 
         <div className="w-full">
+            <p className="text-center text-lg text-muted-foreground mb-2 font-headline">
+                Round {currentIndex + 1} of {playlist.length}
+            </p>
           <Card className="w-full overflow-hidden border-4 border-primary bg-zinc-900 shadow-2xl shadow-primary/30">
             <CardContent className="p-0">
               <div className="relative aspect-[9/16] w-full mx-auto max-w-sm bg-black">
@@ -164,7 +175,7 @@ function WhosThatPokemonPage() {
                   playsInline
                   preload="metadata"
                   controls={false}
-                  muted
+                  muted // Start muted, unmute on reveal
                   onEnded={handleVideoEnded}
                   onError={handleVideoError}
                 >
@@ -177,7 +188,7 @@ function WhosThatPokemonPage() {
                   <div className="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/50" onClick={handlePlay}>
                     <Button
                       size="lg"
-                      className="pointer-events-none font-headline text-2xl h-20 w-48 bg-green-500 text-white"
+                      className="pointer-events-none font-headline text-2xl h-20 w-48 bg-green-500 text-white hover:bg-green-600"
                     >
                       <Play className="mr-2 h-8 w-8" />
                       PLAY
@@ -223,7 +234,7 @@ function WhosThatPokemonPage() {
           </Card>
            {isDesktop && (
             <div className="mt-4 flex flex-wrap justify-center gap-2">
-              <Button variant="outline" onClick={handlePrev} disabled={gameState !== 'idle'}>
+              <Button variant="outline" onClick={handlePrev} disabled={gameState !== 'idle' && gameState !== 'finished'}>
                 <StepBack className="mr-2" /> Prev
               </Button>
               <Button variant="outline" onClick={handleRestart}>
@@ -245,7 +256,7 @@ function WhosThatPokemonPage() {
               >
                 Play
               </Button>
-              <Button variant="outline" onClick={handleNext} disabled={gameState !== 'idle'}>
+              <Button variant="outline" onClick={handleNext} disabled={gameState !== 'idle' && gameState !== 'finished'}>
                 Next <StepForward className="ml-2" />
               </Button>
             </div>
