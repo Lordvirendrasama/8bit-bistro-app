@@ -31,11 +31,13 @@ function WhosThatPokemonPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [gameState, setGameState] = useState<"idle" | "playing" | "paused" | "revealed" | "finished" | "error">("idle");
   const [isDesktop, setIsDesktop] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Check for desktop for host controls
   useEffect(() => {
+    setIsClient(true);
     if (typeof window !== "undefined") {
       const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024);
       checkDesktop();
@@ -235,7 +237,7 @@ function WhosThatPokemonPage() {
               </div>
             </CardContent>
           </Card>
-           {isDesktop && (
+           {isClient && isDesktop && (
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <Button variant="outline" onClick={handlePrev} disabled={gameState !== 'idle' && gameState !== 'finished'}>
                 <StepBack className="mr-2" /> Prev
