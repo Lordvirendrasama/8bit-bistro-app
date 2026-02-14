@@ -26,72 +26,15 @@ const playlist = [
 ];
 
 const PAUSE_TIME = 5;
-const SCHEDULE_INTERVAL_MS = 10 * 1000; // 10 seconds
-const VIDEO_INTERVAL_MINUTES = 30;
-
-// 7. Timezone (Café Clock)
-function getCafeTime(): Date {
-  const now = new Date();
-  // IST is UTC+5:30. We calculate the offset from the client's timezone to UTC, then add the IST offset.
-  const istOffset = 5.5 * 60;
-  const clientOffset = now.getTimezoneOffset();
-  const totalOffset = (istOffset + clientOffset) * 60 * 1000;
-  return new Date(now.getTime() + totalOffset);
-}
-
-function getScheduledIndex(): { status: "preshow" | "ended" | "live"; index: number } {
-  const cafeTime = getCafeTime();
-  const showStartTime = new Date(cafeTime);
-  showStartTime.setHours(13, 30, 0, 0); // 1:30 PM IST
-
-  if (cafeTime < showStartTime) {
-    return { status: "preshow", index: -1 };
-  }
-
-  const minutesSinceStart = (cafeTime.getTime() - showStartTime.getTime()) / (1000 * 60);
-  const videoIndex = Math.floor(minutesSinceStart / VIDEO_INTERVAL_MINUTES);
-
-  if (videoIndex >= playlist.length) {
-    return { status: "ended", index: playlist.length };
-  }
-
-  return { status: "live", index: videoIndex };
-}
 
 // 2. Video Player Component
 function WhosThatPokemonPage() {
-  const [scheduledIndex, setScheduledIndex] = useState(-1);
-  const [showStatus, setShowStatus] = useState<"preshow" | "ended" | "live">("preshow");
-
   const [currentIndex, setCurrentIndex] = useState(0);
   const [gameState, setGameState] = useState<"idle" | "playing" | "paused" | "revealed" | "finished" | "error">("idle");
   const [isDesktop, setIsDesktop] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const animationFrameRef = useRef<number>();
-
-  // Schedule effect
-  useEffect(() => {
-    const updateSchedule = () => {
-      const { status, index } = getScheduledIndex();
-      setShowStatus(status);
-      if (status === "live") {
-        // Only update if the scheduled index has changed
-        if (index !== scheduledIndex) {
-          setScheduledIndex(index);
-          setCurrentIndex(index);
-          setGameState("idle");
-          // This forces the video element to reload with the new source
-          videoRef.current?.load();
-        }
-      }
-    };
-
-    updateSchedule();
-    const intervalId = setInterval(updateSchedule, SCHEDULE_INTERVAL_MS);
-    return () => clearInterval(intervalId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scheduledIndex]);
 
   // Check for desktop for host controls
   useEffect(() => {
@@ -154,6 +97,7 @@ function WhosThatPokemonPage() {
   const handleVideoEnded = () => {
     setGameState("finished");
     setTimeout(() => {
+      // Go to next video but don't autoplay
       setCurrentIndex((prev) => (prev + 1) % playlist.length);
       setGameState("idle");
     }, 2000);
@@ -164,6 +108,7 @@ function WhosThatPokemonPage() {
     if (gameState === 'error') return; // Prevent multiple triggers
     setGameState("error");
     setTimeout(() => {
+      // Go to next video but don't autoplay
       setCurrentIndex((prev) => (prev + 1) % playlist.length);
       setGameState("idle");
     }, 2000);
@@ -177,6 +122,14 @@ function WhosThatPokemonPage() {
       }
     };
   }, []);
+  
+  // Make sure video reloads when index changes
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.load();
+    }
+  }, [currentIndex]);
+
 
   // 8. Host Controls
   const handleNext = () => {
@@ -193,26 +146,6 @@ function WhosThatPokemonPage() {
   };
 
   const videoSrc = `/videos/pokemon/${encodeURIComponent(playlist[currentIndex])}`;
-
-  if (showStatus === "preshow") {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-black text-white">
-        <div className="text-center font-headline text-4xl text-yellow-300">
-          The show begins at 1:30 PM
-        </div>
-      </div>
-    );
-  }
-
-  if (showStatus === "ended") {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-black text-white">
-        <div className="text-center font-headline text-4xl text-yellow-300">
-          Today's episode has ended
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-screen w-full flex-col items-center justify-center bg-black p-4">
