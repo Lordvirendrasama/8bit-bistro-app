@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import {
@@ -552,4 +553,43 @@ export default function AdminMainPage() {
               <DialogDescription>
                 This action cannot be undone. This will permanently delete the
                 score submission.
-              </Dailo...
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteModalOpen(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDeleteSubmit}
+                variant="destructive"
+                disabled={isSubmitting}
+              >
+                {isSubmitting && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* AI Verify Modal */}
+        <Dialog open={aiVerifyModalOpen} onOpenChange={setAiVerifyModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>AI Score Verification</DialogTitle>
+              <DialogDescription>
+                Comparing the submitted image with the entered score value.
+              </DialogDescription>
+            </DialogHeader>
+            {renderAiVerificationResult()}
+          </DialogContent>
+        </Dialog>
+      </div>
+    </TooltipProvider>
+  );
+}
