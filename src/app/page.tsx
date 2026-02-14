@@ -607,7 +607,9 @@ function HomePage() {
                           <div className="p-2">
                             <Button
                               className="w-full"
-                              onClick={() => setIsAddPlayerModalOpen(true)}
+                              onClick={() => {
+                                setIsAddPlayerModalOpen(true);
+                              }}
                             >
                               Add &quot;{playerSearch}&quot; as New Player
                             </Button>
