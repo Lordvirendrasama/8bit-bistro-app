@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 function MediaPage() {
-  const playlistId = "PL94D12C64C0DCE72F";
+  const playlistId = "PLNMTXgsQnLlCAYdQGh3sVAvun2hWZ_a6x";
   const [opts, setOpts] = useState<YouTubeProps['opts'] | null>(null);
 
   useEffect(() => {
