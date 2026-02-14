@@ -286,18 +286,19 @@ export default function AdminUsersPage() {
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
+                            <Button variant="ghost" size="icon" disabled={isSubmitting}>
                               <MoreVertical className="h-5 w-5" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
-                            <DropdownMenuItem onSelect={() => openEditModal(player)}>
+                            <DropdownMenuItem onSelect={() => openEditModal(player)} disabled={isSubmitting}>
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="text-destructive"
                               onSelect={() => openDeleteAlert(player)}
+                              disabled={isSubmitting}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
@@ -390,10 +391,7 @@ export default function AdminUsersPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                handleDeleteSubmit();
-              }}
+              onClick={handleDeleteSubmit}
               className="bg-destructive hover:bg-destructive/90"
               disabled={isSubmitting}
             >
