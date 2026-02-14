@@ -11,6 +11,7 @@ import {
   PartyPopper,
   ChevronsUpDown,
   Check,
+  PlusCircle,
 } from "lucide-react";
 import {
   getStorage,
@@ -585,12 +586,13 @@ function HomePage() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                      <Input
-                        placeholder="Search for a player..."
-                        value={playerSearch}
-                        onChange={(e) => setPlayerSearch(e.target.value)}
-                        className="m-1 w-[calc(100%-0.5rem)]"
-                      />
+                      <div className="p-2 border-b">
+                        <Input
+                          placeholder="Search for a player..."
+                          value={playerSearch}
+                          onChange={(e) => setPlayerSearch(e.target.value)}
+                        />
+                      </div>
                       <ScrollArea className="h-[200px]">
                         {filteredPlayers.length > 0 ? (
                           filteredPlayers.map((player) => (
@@ -622,18 +624,23 @@ function HomePage() {
                             </div>
                           ))
                         ) : (
-                          <div className="p-2">
-                            <Button
-                              className="w-full"
-                              onClick={() => {
-                                setIsAddPlayerModalOpen(true);
-                              }}
-                            >
-                              Add &quot;{playerSearch}&quot; as New Player
-                            </Button>
-                          </div>
+                          <p className="p-4 text-center text-sm text-muted-foreground">
+                            No players found.
+                          </p>
                         )}
                       </ScrollArea>
+                      <div className="p-2 border-t">
+                        <Button
+                          className="w-full"
+                          onClick={() => {
+                            setIsAddPlayerModalOpen(true);
+                            setIsPlayerPopoverOpen(false);
+                          }}
+                        >
+                          <PlusCircle className="mr-2 h-4 w-4" />
+                          Add New Player
+                        </Button>
+                      </div>
                     </PopoverContent>
                   </Popover>
                 )}
