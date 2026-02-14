@@ -41,9 +41,9 @@ export default function Header() {
         <Link href="/dashboard" onClick={handleLogoClick} className="justify-self-center">
           <Image
             src="/image-removebg-preview-Picsart-AilmageEnhancer.png"
-            alt="The 8Bit Bistro Header"
+            alt="Floaters and Socks V6 Valentine's Edition"
             width={1200}
-            height={400}
+            height={300}
             priority
             className="h-32 w-auto"
           />
