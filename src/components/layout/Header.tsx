@@ -40,7 +40,7 @@ export default function Header() {
         <div />
         <Link href="/dashboard" onClick={handleLogoClick} className="justify-self-center">
           <Image
-            src="/image-removebg-preview-Picsart-AilmageEnhancer.png"
+            src="/image-removebg-preview-Picsart-AiimageEnhancer.png"
             alt="Floaters and Socks V6 Valentine's Edition"
             width={1200}
             height={300}
