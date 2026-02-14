@@ -5,8 +5,13 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
-import { Camera, Loader2, PartyPopper, PlusCircle } from "lucide-react";
+import {
+  Camera,
+  Loader2,
+  PartyPopper,
+  ChevronsUpDown,
+  Check,
+} from "lucide-react";
 import {
   getStorage,
   ref,
@@ -43,20 +48,21 @@ import { useGames } from "@/lib/hooks/use-games";
 import { usePlayers } from "@/lib/hooks/use-players";
 import type { Player } from "@/types";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { proactiveFraudDetectionForScoreSubmissions } from "@/ai/flows/proactive-fraud-detection-for-score-submissions-flow";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 /**
  * Handles background tasks for a submission: image upload and AI fraud analysis.
@@ -141,6 +147,156 @@ const uploadAndAnalyze = async ({
   }
 };
 
+const AddPlayerModal = ({
+  open,
+  onOpenChange,
+  onPlayerAdded,
+  initialPlayerName = "",
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onPlayerAdded: (name: string) => void;
+  initialPlayerName?: string;
+}) => {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  const [isAddingPlayer, setIsAddingPlayer] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const handleAddPlayerSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!firestore) return;
+
+    const formData = new FormData(e.currentTarget);
+    const name = (formData.get("name") as string)?.trim();
+    const instagram = (formData.get("instagram") as string)?.trim();
+    const groupSize = Number(formData.get("groupSize") as string);
+
+    if (!name) {
+      toast({
+        variant: "destructive",
+        title: "Registration Failed",
+        description: "Player name is required.",
+      });
+      return;
+    }
+    if (isNaN(groupSize) || groupSize <= 0) {
+      toast({
+        variant: "destructive",
+        title: "Registration Failed",
+        description: "Please enter a valid group size.",
+      });
+      return;
+    }
+
+    setIsAddingPlayer(true);
+    try {
+      const playersRef = collection(firestore, "players");
+      const q = query(playersRef, where("name", "==", name));
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        toast({
+          variant: "destructive",
+          title: "Player Exists",
+          description: `A player with the name "${name}" is already registered.`,
+        });
+        setIsAddingPlayer(false);
+        return;
+      }
+
+      await addDoc(playersRef, {
+        name,
+        instagram,
+        groupSize,
+        createdAt: serverTimestamp(),
+      });
+
+      toast({
+        title: "Player Registered!",
+        description: `You can now submit a score for ${name}.`,
+      });
+      onPlayerAdded(name);
+      formRef.current?.reset();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      toast({
+        variant: "destructive",
+        title: "Registration Error",
+        description: message,
+      });
+    }
+    setIsAddingPlayer(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="font-headline text-2xl">
+            Add New Player
+          </DialogTitle>
+          <DialogDescription>
+            Register a new player for the tournament.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          ref={formRef}
+          onSubmit={handleAddPlayerSubmit}
+          className="space-y-4"
+        >
+          <div>
+            <Label htmlFor="name">Player Name</Label>
+            <Input
+              id="name"
+              name="name"
+              defaultValue={initialPlayerName}
+              required
+              disabled={isAddingPlayer}
+            />
+          </div>
+          <div>
+            <Label htmlFor="instagram">Instagram (Optional)</Label>
+            <Input
+              id="instagram"
+              name="instagram"
+              placeholder="@playerhandle"
+              disabled={isAddingPlayer}
+            />
+          </div>
+          <div>
+            <Label htmlFor="groupSize">Group Size</Label>
+            <Input
+              id="groupSize"
+              name="groupSize"
+              type="number"
+              defaultValue="1"
+              min="1"
+              required
+              disabled={isAddingPlayer}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isAddingPlayer}>
+              {isAddingPlayer && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Save Player
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 function HomePage() {
   const { user, loading: userLoading } = useAuth();
   const auth = useFirebaseAuthInstance();
@@ -150,16 +306,25 @@ function HomePage() {
   const { toast } = useToast();
   const router = useRouter();
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
-
   const [selectedGameId, setSelectedGameId] = useState("");
-  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  // Player selection state
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [isPlayerPopoverOpen, setIsPlayerPopoverOpen] = useState(false);
+
+  // Add player modal state
+  const [isAddPlayerModalOpen, setIsAddPlayerModalOpen] = useState(false);
+  const [newlyAddedPlayerName, setNewlyAddedPlayerName] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     if (!userLoading && !user && auth) {
@@ -173,6 +338,23 @@ function HomePage() {
       });
     }
   }, [user, userLoading, auth, toast]);
+
+  useEffect(() => {
+    if (newlyAddedPlayerName && players.length > 0) {
+      const newPlayer = players.find((p) => p.name === newlyAddedPlayerName);
+      if (newPlayer) {
+        setSelectedPlayer(newPlayer);
+        setNewlyAddedPlayerName(null);
+      }
+    }
+  }, [players, newlyAddedPlayerName]);
+
+  const filteredPlayers =
+    playerSearch === ""
+      ? players
+      : players.filter((p) =>
+          p.name.toLowerCase().includes(playerSearch.toLowerCase())
+        );
 
   const compressImage = (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
@@ -261,11 +443,6 @@ function HomePage() {
     fileInputRef.current?.click();
   };
 
-  const handlePlayerChange = (playerId: string) => {
-    const player = players.find((p) => p.id === playerId) || null;
-    setSelectedPlayer(player);
-  };
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -308,7 +485,6 @@ function HomePage() {
         scoreData
       );
 
-      // --- Submission successful, start background tasks ---
       setShowSuccessModal(true);
 
       const imageToUpload = imageFile;
@@ -323,12 +499,13 @@ function HomePage() {
         user,
       });
 
-      // Reset form
-      formRef.current?.reset();
+      // Reset only score and photo, keep player and game selected
+      (event.target as HTMLFormElement).scoreValue.value = "";
       setImagePreview(null);
       setImageFile(null);
-      setSelectedGameId("");
-      setSelectedPlayer(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     } catch (error) {
       console.error("Submission Error:", error);
       let description = "An unknown error occurred. Please try again.";
@@ -363,44 +540,82 @@ function HomePage() {
         <Card className="shadow-2xl shadow-primary/10">
           <CardHeader>
             <CardTitle className="font-headline text-3xl">
-              Submit High Score
+              Tournament Desk
             </CardTitle>
             <CardDescription>
-              Select a player, enter their score, and snap a photo of the screen.
+              Select a player, enter their score, and snap a photo.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <Label>Player</Label>
                 {playersLoading ? (
-                   <div className="flex justify-center p-4">
+                  <div className="flex justify-center p-4">
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
                   </div>
                 ) : (
-                  <div className="flex gap-2">
-                    <Select
-                      onValueChange={handlePlayerChange}
-                      value={selectedPlayer?.id || ""}
-                      disabled={isSubmitting}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a registered player" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {players.map((player) => (
-                          <SelectItem key={player.id} value={player.id}>
-                            {player.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                     <Button variant="outline" size="icon" asChild>
-                        <Link href="/register">
-                            <PlusCircle />
-                        </Link>
-                    </Button>
-                  </div>
+                  <Popover
+                    open={isPlayerPopoverOpen}
+                    onOpenChange={setIsPlayerPopoverOpen}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={isPlayerPopoverOpen}
+                        className="w-full justify-between"
+                        disabled={isSubmitting}
+                      >
+                        {selectedPlayer
+                          ? selectedPlayer.name
+                          : "Select a player..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                      <Input
+                        placeholder="Search for a player..."
+                        value={playerSearch}
+                        onChange={(e) => setPlayerSearch(e.target.value)}
+                        className="m-1 w-[calc(100%-0.5rem)]"
+                      />
+                      <ScrollArea className="h-[200px]">
+                        {filteredPlayers.length > 0 ? (
+                          filteredPlayers.map((player) => (
+                            <div
+                              key={player.id}
+                              onClick={() => {
+                                setSelectedPlayer(player);
+                                setIsPlayerPopoverOpen(false);
+                                setPlayerSearch("");
+                              }}
+                              className="flex cursor-pointer items-center p-2 hover:bg-accent"
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedPlayer?.id === player.id
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              {player.name}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-2">
+                            <Button
+                              className="w-full"
+                              onClick={() => setIsAddPlayerModalOpen(true)}
+                            >
+                              Add &quot;{playerSearch}&quot; as New Player
+                            </Button>
+                          </div>
+                        )}
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
                 )}
               </div>
 
@@ -506,6 +721,19 @@ function HomePage() {
           </CardContent>
         </Card>
       </div>
+
+      <AddPlayerModal
+        open={isAddPlayerModalOpen}
+        onOpenChange={setIsAddPlayerModalOpen}
+        initialPlayerName={playerSearch}
+        onPlayerAdded={(playerName) => {
+          setNewlyAddedPlayerName(playerName);
+          setIsAddPlayerModalOpen(false);
+          setIsPlayerPopoverOpen(false);
+          setPlayerSearch("");
+        }}
+      />
+
       <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
         <DialogContent onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader className="items-center text-center">

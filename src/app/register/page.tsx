@@ -1,20 +1,38 @@
 "use client";
 
-import { useState, useRef, FormEvent, useEffect } from "react";
+import { useState, useRef, FormEvent, ChangeEvent, useEffect } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import {
+  Camera,
+  Loader2,
+  PartyPopper,
+  ChevronsUpDown,
+  Check,
+} from "lucide-react";
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  FirebaseStorage,
+} from "firebase/storage";
 import {
   collection,
   addDoc,
   serverTimestamp,
+  doc,
+  updateDoc,
   query,
   where,
   getDocs,
+  orderBy,
+  Firestore,
 } from "firebase/firestore";
 import { useFirestore, useAuth as useFirebaseAuthInstance } from "@/firebase";
-import { signInAnonymously } from "firebase/auth";
-import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2, PartyPopper } from "lucide-react";
+import { User, signInAnonymously } from "firebase/auth";
 
 import {
   Card,
@@ -26,6 +44,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useGames } from "@/lib/hooks/use-games";
+import { usePlayers } from "@/lib/hooks/use-players";
+import type { Player } from "@/types";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Dialog,
   DialogContent,
@@ -34,36 +60,114 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { proactiveFraudDetectionForScoreSubmissions } from "@/ai/flows/proactive-fraud-detection-for-score-submissions-flow";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
-function RegisterPlayerPage() {
-  const { user, loading: userLoading } = useAuth();
-  const auth = useFirebaseAuthInstance();
-  const firestore = useFirestore();
-  const { toast } = useToast();
-  const router = useRouter();
-  const formRef = useRef<HTMLFormElement>(null);
+/**
+ * Handles background tasks for a submission: image upload and AI fraud analysis.
+ * This function is designed to be called without being awaited.
+ */
+const uploadAndAnalyze = async ({
+  firestore,
+  storage,
+  docId,
+  imageFile,
+  scoreData,
+  user,
+}: {
+  firestore: Firestore;
+  storage: FirebaseStorage;
+  docId: string;
+  imageFile: File;
+  scoreData: any;
+  user: User;
+}) => {
+  try {
+    // 1. Upload image
+    const storageRef = ref(
+      storage,
+      `score_proofs/${user.uid}_${Date.now()}_${imageFile.name}`
+    );
+    const snapshot = await uploadBytes(storageRef, imageFile, {
+      contentType: imageFile.type,
+    });
+    const imageUrl = await getDownloadURL(snapshot.ref);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
+    // 2. Update doc with image URL
+    const scoreDocRef = doc(firestore, "scoreSubmissions", docId);
+    await updateDoc(scoreDocRef, { imageUrl });
 
-  useEffect(() => {
-    if (!userLoading && !user && auth) {
-      signInAnonymously(auth).catch((error) => {
-        console.error("Anonymous sign-in failed:", error);
-        toast({
-          variant: "destructive",
-          title: "Authentication Failed",
-          description: "Could not sign you in. Please refresh the page.",
-        });
+    // 3. Proactive Fraud Detection
+    const playerContext = {
+      name: scoreData.playerName,
+      instagram: scoreData.playerInstagram,
+    };
+
+    const previousScoresQuery = query(
+      collection(firestore, "scoreSubmissions"),
+      where("playerId", "==", scoreData.playerId),
+      where("gameId", "==", scoreData.gameId),
+      orderBy("submittedAt", "desc")
+    );
+    const previousScoresSnapshot = await getDocs(previousScoresQuery);
+    const previousScoresByPlayerForGame = previousScoresSnapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (doc.id === docId || !data.submittedAt) return null;
+        return {
+          scoreValue: data.scoreValue,
+          timestamp: data.submittedAt.toDate().toISOString(),
+        };
+      })
+      .filter((item): item is { scoreValue: number; timestamp: string } =>
+        item !== null
+      );
+
+    const fraudCheckResult = await proactiveFraudDetectionForScoreSubmissions({
+      currentSubmission: {
+        playerId: scoreData.playerId,
+        gameName: scoreData.gameName,
+        scoreValue: scoreData.scoreValue,
+        imageURL: imageUrl,
+        timestamp: new Date().toISOString(),
+      },
+      playerContext,
+      previousScoresByPlayerForGame,
+    });
+
+    if (fraudCheckResult.isSuspicious) {
+      await updateDoc(scoreDocRef, {
+        isSuspicious: true,
+        suspicionReason: `${fraudCheckResult.reason} (Confidence: ${fraudCheckResult.confidence}%)`,
       });
     }
-  }, [user, userLoading, auth, toast]);
+  } catch (error) {
+    console.error("Error in background submission task:", error);
+  }
+};
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+const AddPlayerModal = ({
+  open,
+  onOpenChange,
+  onPlayerAdded,
+  initialPlayerName = "",
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onPlayerAdded: (name: string) => void;
+  initialPlayerName?: string;
+}) => {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  const [isAddingPlayer, setIsAddingPlayer] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const handleAddPlayerSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     if (!firestore) return;
 
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(e.currentTarget);
     const name = (formData.get("name") as string)?.trim();
     const instagram = (formData.get("instagram") as string)?.trim();
     const groupSize = Number(formData.get("groupSize") as string);
@@ -85,10 +189,8 @@ function RegisterPlayerPage() {
       return;
     }
 
-    setIsSubmitting(true);
-
+    setIsAddingPlayer(true);
     try {
-      // Check if player already exists
       const playersRef = collection(firestore, "players");
       const q = query(playersRef, where("name", "==", name));
       const querySnapshot = await getDocs(q);
@@ -99,11 +201,10 @@ function RegisterPlayerPage() {
           title: "Player Exists",
           description: `A player with the name "${name}" is already registered.`,
         });
-        setIsSubmitting(false);
+        setIsAddingPlayer(false);
         return;
       }
 
-      // Add new player
       await addDoc(playersRef, {
         name,
         instagram,
@@ -111,7 +212,11 @@ function RegisterPlayerPage() {
         createdAt: serverTimestamp(),
       });
 
-      setShowSuccessModal(true);
+      toast({
+        title: "Player Registered!",
+        description: `You can now submit a score for ${name}.`,
+      });
+      onPlayerAdded(name);
       formRef.current?.reset();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -119,6 +224,302 @@ function RegisterPlayerPage() {
         variant: "destructive",
         title: "Registration Error",
         description: message,
+      });
+    }
+    setIsAddingPlayer(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="font-headline text-2xl">
+            Add New Player
+          </DialogTitle>
+          <DialogDescription>
+            Register a new player for the tournament.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          ref={formRef}
+          onSubmit={handleAddPlayerSubmit}
+          className="space-y-4"
+        >
+          <div>
+            <Label htmlFor="name">Player Name</Label>
+            <Input
+              id="name"
+              name="name"
+              defaultValue={initialPlayerName}
+              required
+              disabled={isAddingPlayer}
+            />
+          </div>
+          <div>
+            <Label htmlFor="instagram">Instagram (Optional)</Label>
+            <Input
+              id="instagram"
+              name="instagram"
+              placeholder="@playerhandle"
+              disabled={isAddingPlayer}
+            />
+          </div>
+          <div>
+            <Label htmlFor="groupSize">Group Size</Label>
+            <Input
+              id="groupSize"
+              name="groupSize"
+              type="number"
+              defaultValue="1"
+              min="1"
+              required
+              disabled={isAddingPlayer}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isAddingPlayer}>
+              {isAddingPlayer && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Save Player
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+function HomePage() {
+  const { user, loading: userLoading } = useAuth();
+  const auth = useFirebaseAuthInstance();
+  const firestore = useFirestore();
+  const { games, loading: gamesLoading } = useGames();
+  const { players, loading: playersLoading } = usePlayers();
+  const { toast } = useToast();
+  const router = useRouter();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [selectedGameId, setSelectedGameId] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  // Player selection state
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [isPlayerPopoverOpen, setIsPlayerPopoverOpen] = useState(false);
+
+  // Add player modal state
+  const [isAddPlayerModalOpen, setIsAddPlayerModalOpen] = useState(false);
+  const [newlyAddedPlayerName, setNewlyAddedPlayerName] = useState<
+    string | null
+  >(null);
+
+  useEffect(() => {
+    if (!userLoading && !user && auth) {
+      signInAnonymously(auth).catch((error) => {
+        console.error("Anonymous sign-in failed:", error);
+        toast({
+          variant: "destructive",
+          title: "Authentication Failed",
+          description: "Could not sign you in. Please refresh the page.",
+        });
+      });
+    }
+  }, [user, userLoading, auth, toast]);
+
+  useEffect(() => {
+    if (newlyAddedPlayerName && players.length > 0) {
+      const newPlayer = players.find((p) => p.name === newlyAddedPlayerName);
+      if (newPlayer) {
+        setSelectedPlayer(newPlayer);
+        setNewlyAddedPlayerName(null);
+      }
+    }
+  }, [players, newlyAddedPlayerName]);
+
+  const filteredPlayers =
+    playerSearch === ""
+      ? players
+      : players.filter((p) =>
+          p.name.toLowerCase().includes(playerSearch.toLowerCase())
+        );
+
+  const compressImage = (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = document.createElement("img");
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 1280;
+          const MAX_HEIGHT = 720;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            return reject(new Error("Could not get canvas context"));
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const newFile = new File([blob], file.name, {
+                  type: "image/jpeg",
+                  lastModified: Date.now(),
+                });
+                resolve(newFile);
+              } else {
+                reject(new Error("Canvas to blob conversion failed"));
+              }
+            },
+            "image/jpeg",
+            0.8
+          );
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
+
+  const handleImageChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setIsProcessingImage(true);
+      setImagePreview(null);
+      try {
+        const compressedFile = await compressImage(file);
+        setImageFile(compressedFile);
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(compressedFile);
+      } catch (error) {
+        console.error("Image compression error:", error);
+        toast({
+          variant: "destructive",
+          title: "Image Error",
+          description: "Could not process image. Please try another one.",
+        });
+        setImageFile(null);
+      } finally {
+        setIsProcessingImage(false);
+      }
+    }
+  };
+
+  const handleCameraClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const scoreValue = formData.get("scoreValue") as string;
+    const game = games.find((g) => g.id === selectedGameId);
+
+    if (
+      !user ||
+      !firestore ||
+      !imageFile ||
+      !selectedGameId ||
+      !scoreValue ||
+      !selectedPlayer ||
+      !game
+    ) {
+      toast({
+        variant: "destructive",
+        title: "Submission Failed",
+        description:
+          "Please select a player, a game, enter a score, and provide an image.",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const scoreData = {
+        playerId: selectedPlayer.id,
+        playerName: selectedPlayer.name,
+        playerInstagram: selectedPlayer.instagram || "",
+        gameId: selectedGameId,
+        gameName: game.name,
+        scoreValue: Number(scoreValue),
+        submittedAt: serverTimestamp(),
+      };
+
+      const docRef = await addDoc(
+        collection(firestore, "scoreSubmissions"),
+        scoreData
+      );
+
+      setShowSuccessModal(true);
+
+      const imageToUpload = imageFile;
+      const storage = getStorage(firestore.app);
+
+      uploadAndAnalyze({
+        firestore,
+        storage,
+        docId: docRef.id,
+        imageFile: imageToUpload,
+        scoreData,
+        user,
+      });
+
+      // Reset only score and photo, keep player and game selected
+      (event.target as HTMLFormElement).scoreValue.value = "";
+      setImagePreview(null);
+      setImageFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (error) {
+      console.error("Submission Error:", error);
+      let description = "An unknown error occurred. Please try again.";
+      if (error instanceof Error && error.message.includes("max retries")) {
+        description =
+          "Could not connect to the database. Please check your internet connection and try again in a moment.";
+      } else if (error instanceof Error) {
+        description = error.message;
+      }
+
+      toast({
+        variant: "destructive",
+        title: "Submission Failed",
+        description: description,
       });
     }
 
@@ -139,63 +540,181 @@ function RegisterPlayerPage() {
         <Card className="shadow-2xl shadow-primary/10">
           <CardHeader>
             <CardTitle className="font-headline text-3xl">
-              Register Player
+              Tournament Desk
             </CardTitle>
             <CardDescription>
-              Add a new player to the event roster.
+              Select a player, enter their score, and snap a photo.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <Label htmlFor="name">Player Name</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  type="text"
-                  placeholder="Enter player's name"
-                  required
-                  disabled={isSubmitting}
-                />
+                <Label>Player</Label>
+                {playersLoading ? (
+                  <div className="flex justify-center p-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <Popover
+                    open={isPlayerPopoverOpen}
+                    onOpenChange={setIsPlayerPopoverOpen}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={isPlayerPopoverOpen}
+                        className="w-full justify-between"
+                        disabled={isSubmitting}
+                      >
+                        {selectedPlayer
+                          ? selectedPlayer.name
+                          : "Select a player..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                      <Input
+                        placeholder="Search for a player..."
+                        value={playerSearch}
+                        onChange={(e) => setPlayerSearch(e.target.value)}
+                        className="m-1 w-[calc(100%-0.5rem)]"
+                      />
+                      <ScrollArea className="h-[200px]">
+                        {filteredPlayers.length > 0 ? (
+                          filteredPlayers.map((player) => (
+                            <div
+                              key={player.id}
+                              onClick={() => {
+                                setSelectedPlayer(player);
+                                setIsPlayerPopoverOpen(false);
+                                setPlayerSearch("");
+                              }}
+                              className="flex cursor-pointer items-center p-2 hover:bg-accent"
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedPlayer?.id === player.id
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              {player.name}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-2">
+                            <Button
+                              className="w-full"
+                              onClick={() => setIsAddPlayerModalOpen(true)}
+                            >
+                              Add &quot;{playerSearch}&quot; as New Player
+                            </Button>
+                          </div>
+                        )}
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
+                )}
               </div>
 
               <div>
-                <Label htmlFor="instagram">Instagram (Optional)</Label>
-                <Input
-                  id="instagram"
-                  name="instagram"
-                  type="text"
-                  placeholder="@playerhandle"
-                  disabled={isSubmitting}
-                />
+                <Label>Game</Label>
+                {gamesLoading ? (
+                  <div className="flex justify-center p-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {games.map((game) => (
+                      <Button
+                        key={game.id}
+                        type="button"
+                        variant={
+                          selectedGameId === game.id ? "default" : "outline"
+                        }
+                        onClick={() => setSelectedGameId(game.id)}
+                        disabled={isSubmitting}
+                        className="w-full"
+                      >
+                        {game.name}
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
-                <Label htmlFor="groupSize">Group Size</Label>
+                <Label htmlFor="scoreValue">Score</Label>
                 <Input
-                  id="groupSize"
-                  name="groupSize"
+                  id="scoreValue"
+                  name="scoreValue"
                   type="number"
-                  placeholder="e.g., 2"
+                  placeholder="Enter score"
                   required
-                  min="1"
-                  defaultValue="2"
                   disabled={isSubmitting}
                 />
+              </div>
+
+              <div>
+                <Label>Photo Proof</Label>
+                <input
+                  type="file"
+                  name="image"
+                  accept="image/*"
+                  capture="environment"
+                  ref={fileInputRef}
+                  onChange={handleImageChange}
+                  className="hidden"
+                  required
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-32 flex-col relative"
+                  onClick={handleCameraClick}
+                  disabled={isSubmitting || isProcessingImage}
+                >
+                  {imagePreview ? (
+                    <Image
+                      src={imagePreview}
+                      alt="Image preview"
+                      fill
+                      className="object-contain rounded-md"
+                    />
+                  ) : isProcessingImage ? (
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-10 w-10 animate-spin" />
+                      <span>Processing...</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <Camera className="h-10 w-10" />
+                      <span className="font-semibold">Tap to open camera</span>
+                    </div>
+                  )}
+                </Button>
               </div>
 
               <Button
                 type="submit"
                 className="w-full text-lg py-6"
-                disabled={isSubmitting}
+                disabled={
+                  isSubmitting ||
+                  isProcessingImage ||
+                  !imageFile ||
+                  !selectedGameId ||
+                  !selectedPlayer
+                }
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Registering...
+                    Submitting...
                   </>
                 ) : (
-                  "Register Player"
+                  "Submit Score"
                 )}
               </Button>
             </form>
@@ -203,36 +722,47 @@ function RegisterPlayerPage() {
         </Card>
       </div>
 
+      <AddPlayerModal
+        open={isAddPlayerModalOpen}
+        onOpenChange={setIsAddPlayerModalOpen}
+        initialPlayerName={playerSearch}
+        onPlayerAdded={(playerName) => {
+          setNewlyAddedPlayerName(playerName);
+          setIsAddPlayerModalOpen(false);
+          setIsPlayerPopoverOpen(false);
+          setPlayerSearch("");
+        }}
+      />
+
       <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
         <DialogContent onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader className="items-center text-center">
             <PartyPopper className="h-16 w-16 text-primary animate-bounce" />
             <DialogTitle className="font-headline text-2xl">
-              Player Registered!
+              Score Submitted!
             </DialogTitle>
             <DialogDescription>
-              You can now submit a score for this player.
+              The score is now on the leaderboard. You can submit another or
+              check the live leaderboard.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="sm:justify-center flex-col sm:flex-col sm:space-x-0 gap-2">
-            <Button
-              className="w-full"
-              onClick={() => setShowSuccessModal(false)}
-            >
-              Register Another Player
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => router.push("/")}
-            >
-              Submit a Score
-            </Button>
-          </DialogFooter>
+          <Button
+            className="w-full"
+            onClick={() => setShowSuccessModal(false)}
+          >
+            Enter Another Score
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => router.push("/leaderboard")}
+          >
+            View Leaderboard
+          </Button>
         </DialogContent>
       </Dialog>
     </>
   );
 }
 
-export default RegisterPlayerPage;
+export default HomePage;

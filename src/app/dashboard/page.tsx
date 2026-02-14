@@ -11,15 +11,9 @@ import PixelTrophyIcon from "@/components/icons/PixelTrophyIcon";
 function DashboardPage() {
   const menuItems = [
     {
-      href: "/register",
-      title: "Register Player",
-      description: "Add new players to the event roster.",
-      icon: <PixelTrophyIcon className="w-16 h-16 mb-4 text-primary" />,
-    },
-    {
       href: "/",
-      title: "Submit Score",
-      description: "Enter a score for a registered player.",
+      title: "Tournament Desk",
+      description: "Register players and submit scores.",
       icon: <PixelCameraIcon className="w-16 h-16 mb-4 text-primary" />,
     },
     {
