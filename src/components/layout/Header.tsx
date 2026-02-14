@@ -28,8 +28,8 @@ export default function Header() {
       <div className="container flex h-40 items-center justify-center">
         <Link href="/dashboard" onClick={handleLogoClick}>
           <Image
-            src="/image-removebg-preview-Picsart-AiImageEnhancer.png"
-            alt="Floaters and Socks V6 Valentine's Edition"
+            src="/Floatersandsocks.png"
+            alt="Floaters and Socks Logo"
             width={1200}
             height={300}
             priority
