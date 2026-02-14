@@ -76,7 +76,8 @@ function WhosThatPokemonPage() {
     if (!videoRef.current) return;
     
     videoRef.current.currentTime = 0;
-    videoRef.current.muted = true; // MUST start muted for programmatic play
+    // Enable sound from the start, as this is a direct user interaction
+    videoRef.current.muted = false; 
     
     const playPromise = videoRef.current.play();
     if (playPromise !== undefined) {
@@ -86,7 +87,15 @@ function WhosThatPokemonPage() {
         })
         .catch((error) => {
           console.error("Video play failed:", error);
-          handleVideoError();
+          // Fallback for stricter environments: try playing muted if unmuted fails
+          if (videoRef.current) {
+            videoRef.current.muted = true;
+            videoRef.current.play().then(() => {
+              setGameState("playing");
+            }).catch(handleVideoError);
+          } else {
+            handleVideoError();
+          }
         });
     }
   };
@@ -94,8 +103,7 @@ function WhosThatPokemonPage() {
   const handleReveal = () => {
     if (!videoRef.current || gameState !== 'paused') return;
 
-    // This is a direct user interaction, so we can unmute and play
-    videoRef.current.muted = false; 
+    // The video is already unmuted from handlePlay, so we just need to play
     const playPromise = videoRef.current.play();
 
     if (playPromise !== undefined) {
@@ -128,7 +136,8 @@ function WhosThatPokemonPage() {
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.load();
-      videoRef.current.muted = true; // Always start new videos muted
+      // Mute by default when a new video loads, sound will be enabled by user clicking 'Play'
+      videoRef.current.muted = true; 
       setGameState('idle'); 
     }
   }, [currentIndex]);
@@ -170,7 +179,6 @@ function WhosThatPokemonPage() {
                   playsInline
                   preload="metadata"
                   controls={false}
-                  muted
                   onEnded={handleVideoEnded}
                   onError={handleVideoError}
                 >
