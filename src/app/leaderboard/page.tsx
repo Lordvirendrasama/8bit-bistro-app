@@ -97,7 +97,7 @@ function LeaderboardPage() {
         <h1
           className="font-headline text-5xl sm:text-7xl text-center font-black text-primary uppercase tracking-wider mb-8"
         >
-          Leaderboard
+          8 Bit Leaderboard
         </h1>
 
         {loadingGames && (
