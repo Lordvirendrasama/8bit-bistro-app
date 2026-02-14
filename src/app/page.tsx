@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, FormEvent, ChangeEvent, useEffect } from "react";
@@ -16,23 +17,19 @@ import {
 import {
   getStorage,
   ref,
-  uploadBytes,
+  uploadString,
   getDownloadURL,
 } from "firebase/storage";
 import {
   collection,
   addDoc,
   serverTimestamp,
-  doc,
-  updateDoc,
   query,
   where,
   getDocs,
-  orderBy,
-  Firestore,
 } from "firebase/firestore";
 import { useFirestore, useAuth as useFirebaseAuthInstance } from "@/firebase";
-import { User, signInAnonymously } from "firebase/auth";
+import { signInAnonymously } from "firebase/auth";
 
 import {
   Card,
@@ -225,7 +222,6 @@ function HomePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
   const [selectedGameId, setSelectedGameId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
@@ -277,7 +273,6 @@ function HomePage() {
     if (file) {
       setIsProcessingImage(true);
       setImagePreview(null);
-      setImageFile(file); // Use the original file without compression
 
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -301,7 +296,7 @@ function HomePage() {
     if (
       !user ||
       !firestore ||
-      !imageFile ||
+      !imagePreview || // Changed check from imageFile to imagePreview
       !selectedGameId ||
       !scoreValue ||
       !selectedPlayer ||
@@ -321,17 +316,12 @@ function HomePage() {
     try {
       const storage = getStorage(firestore.app);
       
-      // 1. Upload image first to get a URL.
-      const storageRef = ref(
-        storage,
-        `score_proofs/${user.uid}_${Date.now()}_${imageFile.name}`
-      );
-      const snapshot = await uploadBytes(storageRef, imageFile, {
-        contentType: imageFile.type,
-      });
+      const storageRef = ref(storage, `score_proofs/${user.uid}_${Date.now()}`);
+      
+      // Use uploadString with the data URL from imagePreview
+      const snapshot = await uploadString(storageRef, imagePreview, 'data_url');
       const imageUrl = await getDownloadURL(snapshot.ref);
 
-      // 2. Prepare all score data, including the final imageUrl.
       const scoreData = {
         playerId: selectedPlayer.id,
         playerName: selectedPlayer.name,
@@ -340,32 +330,26 @@ function HomePage() {
         gameName: game.name,
         scoreValue: Number(scoreValue),
         submittedAt: serverTimestamp(),
-        imageUrl: imageUrl, // Add the URL here
+        imageUrl: imageUrl,
       };
 
-      // 3. Create the document in Firestore with all data at once.
-      const docRef = await addDoc(
+      await addDoc(
         collection(firestore, "scoreSubmissions"),
         scoreData
       );
       
-      // 4. Show the success modal.
       setShowSuccessModal(true);
 
-      // Reset form for the next submission
+      // Reset form
       (event.target as HTMLFormElement).scoreValue.value = "";
       setImagePreview(null);
-      setImageFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     } catch (error) {
       console.error("Submission Error:", error);
       let description = "An unknown error occurred. Please try again.";
-      if (error instanceof Error && error.message.includes("max retries")) {
-        description =
-          "Could not connect to the database. Please check your internet connection and try again in a moment.";
-      } else if (error instanceof Error) {
+      if (error instanceof Error) {
         description = error.message;
       }
 
@@ -587,7 +571,7 @@ function HomePage() {
                 disabled={
                   isSubmitting ||
                   isProcessingImage ||
-                  !imageFile ||
+                  !imagePreview ||
                   !selectedGameId ||
                   !selectedPlayer
                 }
