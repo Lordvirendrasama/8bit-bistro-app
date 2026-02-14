@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -79,8 +80,13 @@ function GameLeaderboard({ gameId }: { gameId: string }) {
               )}
             </div>
           </div>
-          <div className="text-2xl font-bold font-mono text-primary">
-            {score.scoreValue.toLocaleString()}
+          <div className="text-right">
+            <div className="text-2xl font-bold font-mono text-primary">
+              {score.scoreValue.toLocaleString()}
+            </div>
+            <div className="text-sm text-muted-foreground -mt-1">
+              Level {score.level}
+            </div>
           </div>
         </Card>
       ))}

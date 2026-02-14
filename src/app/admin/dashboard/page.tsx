@@ -11,24 +11,19 @@ import {
   orderBy,
 } from "firebase/firestore";
 import Link from "next/link";
-import Image from "next/image";
 import {
-  AlertCircle,
   ChevronDown,
   ChevronUp,
   Edit,
   MoreVertical,
   Trash2,
-  Sparkles,
   Loader2,
   PlusCircle,
-  ImageOff,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import type { Score } from "@/types";
-import { adminScoreImageVerificationAssistant } from "@/ai/flows/admin-score-image-verification-assistant";
 
 import {
   Card,
@@ -64,13 +59,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import type { AdminScoreImageVerificationAssistantOutput } from "@/ai/flows/admin-score-image-verification-assistant";
 import { useGames } from "@/lib/hooks/use-games";
 
 // Helper component to avoid hydration mismatch error with date formatting.
@@ -111,13 +99,9 @@ export default function AdminMainPage() {
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [aiVerifyModalOpen, setAiVerifyModalOpen] = useState(false);
   const [selectedScore, setSelectedScore] = useState<Score | null>(null);
   const [newScoreValue, setNewScoreValue] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [aiVerificationResult, setAiVerificationResult] =
-    useState<AdminScoreImageVerificationAssistantOutput | null>(null);
-  const [isVerifying, setIsVerifying] = useState(false);
 
   const { toast } = useToast();
 
@@ -255,120 +239,6 @@ export default function AdminMainPage() {
     setDeleteModalOpen(false);
   };
 
-  const openAiVerifyModal = async (score: Score) => {
-    setSelectedScore(score);
-    setAiVerifyModalOpen(true);
-    setIsVerifying(true);
-    setAiVerificationResult(null);
-
-    try {
-      if (!firestore) throw new Error("Firestore not available");
-
-      const { imageUrl, scoreValue, gameName } = score;
-
-      if (!imageUrl) {
-        toast({
-          title: "Cannot Verify",
-          description: "Image is not yet available for this submission.",
-          variant: "destructive",
-        });
-        setAiVerifyModalOpen(false);
-        setIsVerifying(false);
-        return;
-      }
-
-      const response = await fetch(imageUrl);
-      if (!response.ok) throw new Error("Failed to fetch image from storage.");
-
-      const blob = await response.blob();
-      const photoDataUri = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
-      });
-
-      const aiResult = await adminScoreImageVerificationAssistant({
-        photoDataUri,
-        enteredScore: scoreValue,
-        gameName,
-      });
-
-      setAiVerificationResult(aiResult);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      toast({
-        title: "AI Verification Error",
-        description: message,
-        variant: "destructive",
-      });
-      setAiVerifyModalOpen(false);
-    }
-    setIsVerifying(false);
-  };
-
-  const renderAiVerificationResult = () => {
-    if (isVerifying) {
-      return (
-        <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-muted-foreground">
-            AI is analyzing the score...
-          </p>
-        </div>
-      );
-    }
-    if (!aiVerificationResult) return null;
-
-    const { isVerified, imageDetectedScore, discrepancyReason, confidence } =
-      aiVerificationResult;
-
-    return (
-      <div className="space-y-4">
-        <div
-          className={`p-4 rounded-lg ${
-            isVerified ? "bg-green-900/50" : "bg-destructive/20"
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            {isVerified ? (
-              <Sparkles className="h-5 w-5 text-green-400" />
-            ) : (
-              <AlertCircle className="h-5 w-5 text-destructive" />
-            )}
-            <h3 className="text-lg font-bold">
-              {isVerified ? "Score Verified" : "Discrepancy Found"}
-            </h3>
-          </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {discrepancyReason}
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="bg-card p-3 rounded-md">
-            <p className="text-muted-foreground">Entered Score</p>
-            <p className="font-bold text-lg">
-              {selectedScore?.scoreValue.toLocaleString()}
-            </p>
-          </div>
-          <div className="bg-card p-3 rounded-md">
-            <p className="text-muted-foreground">AI Detected Score</p>
-            <p className="font-bold text-lg">
-              {imageDetectedScore?.toLocaleString() ?? "N/A"}
-            </p>
-          </div>
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">
-            AI Confidence:{" "}
-            <span className="font-mono text-foreground">
-              {(confidence * 100).toFixed(1)}%
-            </span>
-          </p>
-        </div>
-      </div>
-    );
-  };
-
   if (loadingScores || gamesLoading) {
     return (
       <div className="p-8 flex justify-center items-center">
@@ -378,7 +248,7 @@ export default function AdminMainPage() {
   }
 
   return (
-    <TooltipProvider>
+    <>
       <div className="p-4 md:p-8">
         <h1 className="font-headline text-4xl mb-2">Admin Main</h1>
         <p className="text-muted-foreground mb-6">
@@ -408,8 +278,8 @@ export default function AdminMainPage() {
                     <TableHead>Player</TableHead>
                     <SortableHeader label="Game" sortKey="gameName" />
                     <SortableHeader label="Score" sortKey="scoreValue" />
+                    <TableHead>Level</TableHead>
                     <SortableHeader label="Submitted" sortKey="submittedAt" />
-                    <TableHead>Image</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -439,36 +309,9 @@ export default function AdminMainPage() {
                       <TableCell className="font-mono">
                         {score.scoreValue.toLocaleString()}
                       </TableCell>
+                      <TableCell className="font-mono">{score.level}</TableCell>
                       <TableCell>
                         <TimeAgo timestamp={score.submittedAt} />
-                      </TableCell>
-                      <TableCell>
-                        {score.imageUrl ? (
-                          <Link
-                            href={score.imageUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="relative block h-16 w-28 overflow-hidden rounded-md border group"
-                          >
-                            <Image
-                              src={score.imageUrl}
-                              alt={`Score proof for ${score.playerName}`}
-                              fill
-                              className="object-cover transition-transform group-hover:scale-110"
-                            />
-                          </Link>
-                        ) : (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="flex h-16 w-28 items-center justify-center rounded-md border border-dashed bg-muted/50">
-                                <ImageOff className="h-6 w-6 text-muted-foreground" />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>No image submitted.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -483,15 +326,6 @@ export default function AdminMainPage() {
                             >
                               <Edit className="mr-2 h-4 w-4" />
                               Edit Score
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={() =>
-                                score.imageUrl && openAiVerifyModal(score)
-                              }
-                              disabled={!score.imageUrl}
-                            >
-                              <Sparkles className="mr-2 h-4 w-4" />
-                              Verify with AI
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -576,20 +410,7 @@ export default function AdminMainPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
-        {/* AI Verify Modal */}
-        <Dialog open={aiVerifyModalOpen} onOpenChange={setAiVerifyModalOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>AI Score Verification</DialogTitle>
-              <DialogDescription>
-                Comparing the submitted image with the entered score value.
-              </DialogDescription>
-            </DialogHeader>
-            {renderAiVerificationResult()}
-          </DialogContent>
-        </Dialog>
       </div>
-    </TooltipProvider>
+    </>
   );
 }

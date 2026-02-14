@@ -22,6 +22,6 @@ export type Score = {
   playerInstagram: string;
   gameName: string;
   scoreValue: number;
-  imageUrl?: string;
+  level: number;
   submittedAt: Timestamp;
 };

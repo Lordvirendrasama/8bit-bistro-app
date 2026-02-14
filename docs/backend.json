@@ -82,10 +82,9 @@
           "type": "number",
           "description": "The numerical value of the high score submitted."
         },
-        "imageUrl": {
-          "type": "string",
-          "description": "URL to the image proof of the high score stored in Firebase Storage.",
-          "format": "uri"
+        "level": {
+          "type": "number",
+          "description": "The level number the player reached."
         },
         "submittedAt": {
           "type": "string",
@@ -98,7 +97,7 @@
         "playerId",
         "gameId",
         "scoreValue",
-        "imageUrl",
+        "level",
         "submittedAt"
       ]
     }

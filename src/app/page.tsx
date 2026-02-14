@@ -5,21 +5,13 @@ import { useState, useRef, FormEvent, ChangeEvent, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import {
-  Upload,
   Loader2,
   PartyPopper,
   ChevronsUpDown,
   Check,
   PlusCircle,
 } from "lucide-react";
-import {
-  getStorage,
-  ref,
-  uploadString,
-  getDownloadURL,
-} from "firebase/storage";
 import {
   collection,
   addDoc,
@@ -246,13 +238,10 @@ function HomePage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedGameId, setSelectedGameId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Player selection state
@@ -296,37 +285,19 @@ function HomePage() {
           p.name.toLowerCase().includes(playerSearch.toLowerCase())
         );
 
-  const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setIsProcessingImage(true);
-      setImagePreview(null);
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-        setIsProcessingImage(false);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleCameraClick = () => {
-    fileInputRef.current?.click();
-  };
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const scoreValue = formData.get("scoreValue") as string;
+    const level = formData.get("level") as string;
     const game = games.find((g) => g.id === selectedGameId);
 
     if (
       !user ||
       !firestore ||
-      !imagePreview ||
       !selectedGameId ||
       !scoreValue ||
+      !level ||
       !selectedPlayer ||
       !game
     ) {
@@ -334,30 +305,12 @@ function HomePage() {
         variant: "destructive",
         title: "Submission Failed",
         description:
-          "Please select a player, a game, enter a score, and provide an image.",
+          "Please select a player, a game, enter a score, and a level.",
       });
       return;
     }
 
     setIsSubmitting(true);
-
-    let imageUrl = "";
-    try {
-      const storage = getStorage(firestore.app);
-      const storageRef = ref(storage, `score_proofs/${user.uid}_${Date.now()}`);
-      const snapshot = await uploadString(storageRef, imagePreview, "data_url");
-      imageUrl = await getDownloadURL(snapshot.ref);
-    } catch (storageError) {
-      console.error("Storage Upload Error:", storageError);
-      toast({
-        variant: "destructive",
-        title: "Image Upload Failed",
-        description:
-          "Could not upload the image. Please check your connection and try again.",
-      });
-      setIsSubmitting(false);
-      return;
-    }
 
     const scoreData = {
       playerId: selectedPlayer.id,
@@ -366,8 +319,8 @@ function HomePage() {
       gameId: selectedGameId,
       gameName: game.name,
       scoreValue: Number(scoreValue),
+      level: Number(level),
       submittedAt: serverTimestamp(),
-      imageUrl: imageUrl,
     };
 
     const scoreSubmissionsRef = collection(firestore, "scoreSubmissions");
@@ -377,12 +330,8 @@ function HomePage() {
         setShowSuccessModal(true);
         // Reset form
         formRef.current?.reset();
-        setImagePreview(null);
         setSelectedGameId("");
         setSelectedPlayer(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
       })
       .catch((firestoreError) => {
         console.error("Firestore Write Error:", firestoreError);
@@ -422,7 +371,7 @@ function HomePage() {
               Tournament Desk
             </CardTitle>
             <CardDescription>
-              Select a player, enter their score, and snap a photo.
+              Select a player, enter their score, and submit.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -554,69 +503,35 @@ function HomePage() {
                   </div>
                 )}
               </div>
-
-              <div>
-                <Label htmlFor="scoreValue">Score</Label>
-                <Input
-                  id="scoreValue"
-                  name="scoreValue"
-                  type="number"
-                  placeholder="Enter score"
-                  required
-                  disabled={isSubmitting}
-                />
-              </div>
-
-              <div>
-                <Label>Photo Proof</Label>
-                <input
-                  type="file"
-                  name="image"
-                  accept="image/png, image/jpeg"
-                  ref={fileInputRef}
-                  onChange={handleImageChange}
-                  className="hidden"
-                  required
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full h-32 flex-col relative"
-                  onClick={handleCameraClick}
-                  disabled={isSubmitting || isProcessingImage}
-                >
-                  {imagePreview ? (
-                    <Image
-                      src={imagePreview}
-                      alt="Image preview"
-                      fill
-                      className="object-contain rounded-md"
-                    />
-                  ) : isProcessingImage ? (
-                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                      <Loader2 className="h-10 w-10 animate-spin" />
-                      <span>Processing...</span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                      <Upload className="h-10 w-10" />
-                      <span className="font-semibold">Upload Image</span>
-                      <span className="text-xs">PNG or JPG</span>
-                    </div>
-                  )}
-                </Button>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="scoreValue">Score</Label>
+                  <Input
+                    id="scoreValue"
+                    name="scoreValue"
+                    type="number"
+                    placeholder="Enter score"
+                    required
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="level">Level Number</Label>
+                  <Input
+                    id="level"
+                    name="level"
+                    type="number"
+                    placeholder="Enter level"
+                    required
+                    disabled={isSubmitting}
+                  />
+                </div>
               </div>
 
               <Button
                 type="submit"
                 className="w-full text-lg py-6"
-                disabled={
-                  isSubmitting ||
-                  isProcessingImage ||
-                  !imagePreview ||
-                  !selectedGameId ||
-                  !selectedPlayer
-                }
+                disabled={isSubmitting || !selectedGameId || !selectedPlayer}
               >
                 {isSubmitting ? (
                   <>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -92,7 +93,7 @@ export function OverallLeaderboard() {
                       {score.playerName ?? "Anonymous"}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {score.gameName}
+                      {score.gameName} - Lvl {score.level}
                     </div>
                   </div>
                 </div>
