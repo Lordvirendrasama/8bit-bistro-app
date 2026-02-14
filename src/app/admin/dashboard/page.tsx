@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirestore } from "@/firebase";
 import type { Score } from "@/types";
 import { adminScoreImageVerificationAssistant } from "@/ai/flows/admin-score-image-verification-assistant";
 
@@ -70,23 +70,12 @@ import {
 } from "@/components/ui/tooltip";
 import type { AdminScoreImageVerificationAssistantOutput } from "@/ai/flows/admin-score-image-verification-assistant";
 import { useGames } from "@/lib/hooks/use-games";
-
-type ScoreData = Omit<Score, "id">;
+import { useScoreSubmissions } from "@/lib/hooks/use-score-submissions";
 
 export default function AdminMainPage() {
   const firestore = useFirestore();
   const { games, loading: gamesLoading } = useGames();
-
-  const scoresQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(
-      collection(firestore, "scoreSubmissions"),
-      orderBy("submittedAt", "desc")
-    );
-  }, [firestore]);
-
-  const { data: scores, isLoading: loadingScores } =
-    useCollection<ScoreData>(scoresQuery);
+  const { scores, loading: loadingScores } = useScoreSubmissions();
 
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Score;
@@ -415,6 +404,17 @@ export default function AdminMainPage() {
                               {score.playerInstagram}
                             </div>
                           </div>
+                          {score.isSuspicious && (
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <AlertCircle className="h-4 w-4 text-amber-400" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="font-bold">Suspicious Activity</p>
+                                <p>{score.suspicionReason}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>{score.gameName}</TableCell>
