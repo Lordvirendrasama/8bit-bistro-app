@@ -3,10 +3,17 @@
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Card, CardContent } from "@/components/ui/card";
 import YouTube from 'react-youtube';
+import { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 
 function MediaPage() {
-
   const playlistId = "PL94D12C64C0DCE72F";
+  const [origin, setOrigin] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    // This code runs only on the client
+    setOrigin(window.location.origin);
+  }, []);
 
   const opts = {
     height: '100%',
@@ -15,6 +22,7 @@ function MediaPage() {
       autoplay: 1,
       listType: 'playlist',
       list: playlistId,
+      origin: origin,
     },
   };
 
@@ -27,10 +35,16 @@ function MediaPage() {
         <Card className="overflow-hidden shadow-2xl shadow-primary/10">
           <CardContent className="p-0">
             <div className="aspect-video w-full bg-black relative">
-              <YouTube
-                opts={opts}
-                className="absolute top-0 left-0 w-full h-full"
-              />
+              {origin ? (
+                <YouTube
+                  opts={opts}
+                  className="absolute top-0 left-0 w-full h-full"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
