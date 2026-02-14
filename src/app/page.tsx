@@ -556,93 +556,98 @@ function HomePage() {
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
                   </div>
                 ) : (
-                  <Popover
-                    open={isPlayerPopoverOpen}
-                    onOpenChange={setIsPlayerPopoverOpen}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={isPlayerPopoverOpen}
-                        className="w-full justify-between"
-                        disabled={isSubmitting}
+                  <div className="flex items-center gap-2">
+                    <div className="flex-grow">
+                      <Popover
+                        open={isPlayerPopoverOpen}
+                        onOpenChange={setIsPlayerPopoverOpen}
                       >
-                        <span className="truncate">
-                          {selectedPlayer ? (
-                            <>
-                              {selectedPlayer.name}
-                              {selectedPlayer.instagram && (
-                                <span className="ml-1 text-muted-foreground">
-                                  ({selectedPlayer.instagram})
-                                </span>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={isPlayerPopoverOpen}
+                            className="w-full justify-between"
+                            disabled={isSubmitting}
+                          >
+                            <span className="truncate">
+                              {selectedPlayer ? (
+                                <>
+                                  {selectedPlayer.name}
+                                  {selectedPlayer.instagram && (
+                                    <span className="ml-1 text-muted-foreground">
+                                      ({selectedPlayer.instagram})
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                "Select a player..."
                               )}
-                            </>
-                          ) : (
-                            "Select a player..."
-                          )}
-                        </span>
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                      <div className="p-2 border-b">
-                        <Input
-                          placeholder="Search for a player..."
-                          value={playerSearch}
-                          onChange={(e) => setPlayerSearch(e.target.value)}
-                        />
-                      </div>
-                      <ScrollArea className="h-[200px]">
-                        {filteredPlayers.length > 0 ? (
-                          filteredPlayers.map((player) => (
-                            <div
-                              key={player.id}
-                              onClick={() => {
-                                setSelectedPlayer(player);
-                                setIsPlayerPopoverOpen(false);
-                                setPlayerSearch("");
-                              }}
-                              className="flex cursor-pointer items-center p-2 hover:bg-accent"
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  selectedPlayer?.id === player.id
-                                    ? "opacity-100"
-                                    : "opacity-0"
-                                )}
-                              />
-                               <span className="truncate">
-                                {player.name}
-                                {player.instagram && (
-                                  <span className="ml-1 text-muted-foreground">
-                                    ({player.instagram})
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                          <div className="p-2 border-b">
+                            <Input
+                              placeholder="Search for a player..."
+                              value={playerSearch}
+                              onChange={(e) =>
+                                setPlayerSearch(e.target.value)
+                              }
+                            />
+                          </div>
+                          <ScrollArea className="h-[200px]">
+                            {filteredPlayers.length > 0 ? (
+                              filteredPlayers.map((player) => (
+                                <div
+                                  key={player.id}
+                                  onClick={() => {
+                                    setSelectedPlayer(player);
+                                    setIsPlayerPopoverOpen(false);
+                                    setPlayerSearch("");
+                                  }}
+                                  className="flex cursor-pointer items-center p-2 hover:bg-accent"
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedPlayer?.id === player.id
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    )}
+                                  />
+                                  <span className="truncate">
+                                    {player.name}
+                                    {player.instagram && (
+                                      <span className="ml-1 text-muted-foreground">
+                                        ({player.instagram})
+                                      </span>
+                                    )}
                                   </span>
-                                )}
-                              </span>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="p-4 text-center text-sm text-muted-foreground">
-                            No players found.
-                          </p>
-                        )}
-                      </ScrollArea>
-                      <div className="p-2 border-t">
-                        <Button
-                          className="w-full"
-                          onClick={() => {
-                            setIsAddPlayerModalOpen(true);
-                            setIsPlayerPopoverOpen(false);
-                          }}
-                        >
-                          <PlusCircle className="mr-2 h-4 w-4" />
-                          Add New Player
-                        </Button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="p-4 text-center text-sm text-muted-foreground">
+                                No players found.
+                              </p>
+                            )}
+                          </ScrollArea>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-10 flex-shrink-0"
+                      onClick={() => setIsAddPlayerModalOpen(true)}
+                      disabled={isSubmitting}
+                      aria-label="Add new player"
+                    >
+                      <PlusCircle className="h-5 w-5" />
+                    </Button>
+                  </div>
                 )}
               </div>
 
