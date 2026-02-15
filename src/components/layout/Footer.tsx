@@ -4,7 +4,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import Logo from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
 import { useState, useEffect } from 'react';
 
 export default function Footer() {
@@ -64,24 +63,6 @@ export default function Footer() {
             <Link href="/dashboard">
                 <Logo className="h-20" />
             </Link>
-            <Link href="/dashboard">
-              <Image
-                src="/272827436_301614021993701_2066672914547571489_n.jpg"
-                alt="Sponsor Logo"
-                width={150}
-                height={150}
-                className="h-20 w-auto"
-              />
-            </Link>
-            <Link href="/admin/dashboard">
-              <Image
-                src="/301485854_511554380976736_393831328011205696_n.jpg"
-                alt="Sponsor Logo"
-                width={150}
-                height={150}
-                className="h-20 w-auto"
-              />
-            </Link>
         </div>
       </div>
     </footer>
@@ -93,24 +74,6 @@ export default function Footer() {
       <div className="w-full flex flex-wrap items-center justify-center gap-x-12 gap-y-6 px-4">
         <Link href="/dashboard" onClick={handleSecretClick}>
           <Logo className="h-20" />
-        </Link>
-        <Link href="/dashboard">
-          <Image
-            src="/272827436_301614021993701_2066672914547571489_n.jpg"
-            alt="Sponsor Logo"
-            width={150}
-            height={150}
-            className="h-20 w-auto"
-          />
-        </Link>
-        <Link href="/admin/dashboard">
-          <Image
-            src="/301485854_511554380976736_393831328011205696_n.jpg"
-            alt="Sponsor Logo"
-            width={150}
-            height={150}
-            className="h-20 w-auto"
-          />
         </Link>
       </div>
     </footer>
