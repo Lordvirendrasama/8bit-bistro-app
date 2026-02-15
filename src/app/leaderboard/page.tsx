@@ -106,7 +106,7 @@ function LeaderboardPage() {
   return (
     <div className="py-10">
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <h1 className="font-headline text-5xl sm:text-7xl text-center font-black text-primary uppercase tracking-wider mb-8">
+        <h1 className="font-headline text-4xl sm:text-6xl text-center font-black text-primary uppercase tracking-wider mb-8">
           8 Bit Leaderboard
         </h1>
 
@@ -123,12 +123,12 @@ function LeaderboardPage() {
         )}
 
         {!loading && rankedGames.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {rankedGames.map((gameData) => {
               if (gameData.rankedPlayers.length === 0) return null;
               return (
                 <div key={gameData.gameName}>
-                  <h2 className="font-headline text-3xl sm:text-4xl text-center text-foreground mb-4 bg-primary/80 py-2 rounded-md shadow-lg">
+                  <h2 className="font-headline text-2xl sm:text-3xl text-center text-foreground mb-4 bg-primary/80 py-2 rounded-md shadow-lg">
                     {gameData.gameName}
                   </h2>
                   <div className="space-y-4">
@@ -139,32 +139,32 @@ function LeaderboardPage() {
                       return (
                         <Collapsible key={playerEntry.playerId}>
                           <Card>
-                            <div className="flex items-center p-4">
+                            <div className="flex items-center gap-2 p-3 sm:p-4">
                               {/* Ranking, Avatar, and Name */}
-                              <div className="flex flex-1 items-center gap-4">
-                                <div className="w-8 text-center text-xl font-bold">
+                              <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+                                <div className="w-8 flex-shrink-0 text-center text-xl font-bold">
                                   {rank}
                                 </div>
-                                <Avatar>
+                                <Avatar className="h-9 w-9 sm:h-10 sm:w-10">
                                   <AvatarFallback>
                                     {playerEntry.playerName?.charAt(0) ?? "A"}
                                   </AvatarFallback>
                                 </Avatar>
-                                <div className="flex items-center gap-2">
-                                  <div className="font-bold text-lg sm:text-xl">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <div className="truncate font-bold text-base sm:text-lg">
                                     {playerEntry.playerName ?? "Anonymous"}
                                   </div>
                                   {rank === 1 && (
-                                    <Crown className="h-6 w-6 text-yellow-400" />
+                                    <Crown className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 text-yellow-400" />
                                   )}
                                 </div>
                               </div>
                               {/* Best Score */}
                               <div className="text-right">
-                                <div className="text-2xl font-bold font-mono text-primary">
+                                <div className="text-lg font-bold font-mono text-primary sm:text-xl md:text-2xl">
                                   {playerEntry.bestScore.scoreValue.toLocaleString()}
                                 </div>
-                                <div className="text-sm text-muted-foreground -mt-1">
+                                <div className="text-xs text-muted-foreground -mt-1">
                                   Level {playerEntry.bestScore.level}
                                 </div>
                               </div>
@@ -174,7 +174,7 @@ function LeaderboardPage() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="ml-2 h-8 w-8 [&[data-state=open]>svg]:rotate-180"
+                                    className="h-8 w-8 flex-shrink-0 [&[data-state=open]>svg]:rotate-180"
                                   >
                                     <ChevronDown className="h-4 w-4 transition-transform duration-200" />
                                   </Button>
@@ -191,7 +191,7 @@ function LeaderboardPage() {
                                     .map((score) => (
                                       <div
                                         key={score.id}
-                                        className="flex items-center justify-between pl-12 text-sm"
+                                        className="flex items-center justify-between pl-10 sm:pl-12 text-sm"
                                       >
                                         <span className="text-muted-foreground">
                                           Level {score.level}
