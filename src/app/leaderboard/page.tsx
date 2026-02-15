@@ -11,7 +11,7 @@ import {
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useFirestore } from "@/firebase";
-import type { Score } from "@/types";
+import type { Score, Game } from "@/types";
 import { Loader2, Crown, ChevronDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -24,42 +24,85 @@ import { Button } from "@/components/ui/button";
 
 function LeaderboardPage() {
   const [allScores, setAllScores] = useState<Score[]>([]);
+  const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const firestore = useFirestore();
 
   useEffect(() => {
-    if (!firestore) return;
+    if (!firestore) {
+      setLoading(false);
+      return;
+    }
 
+    setLoading(true);
+    let loadingCount = 2; // We are waiting for 2 fetches: scores and games
+    const doneLoading = () => {
+      loadingCount--;
+      if (loadingCount === 0) {
+        setLoading(false);
+      }
+    };
+
+    // 1. Fetch all scores
     const scoresQuery = query(
       collection(firestore, "scoreSubmissions"),
       orderBy("scoreValue", "desc")
     );
-
-    const unsubscribe = onSnapshot(
+    const unsubscribeScores = onSnapshot(
       scoresQuery,
       (snapshot) => {
         const scoresData = snapshot.docs.map(
           (doc) => ({ id: doc.id, ...doc.data() } as Score)
         );
         setAllScores(scoresData);
-        setLoading(false);
+        doneLoading();
       },
       (error) => {
         console.error("Error fetching scores: ", error);
-        setLoading(false);
+        doneLoading();
       }
     );
 
-    return () => unsubscribe();
+    // 2. Fetch all games
+    const gamesQuery = query(collection(firestore, "games"));
+    const unsubscribeGames = onSnapshot(
+      gamesQuery,
+      (snapshot) => {
+        const gamesData = snapshot.docs.map(
+          (doc) => ({ id: doc.id, ...doc.data() } as Game)
+        );
+        setGames(gamesData);
+        doneLoading();
+      },
+      (error) => {
+        console.error("Error fetching games: ", error);
+        doneLoading();
+      }
+    );
+
+
+    return () => {
+      unsubscribeScores();
+      unsubscribeGames();
+    };
   }, [firestore]);
 
   const rankedGames = useMemo(() => {
+    // Create a map of game IDs to their current names for quick lookup.
+    const gameNameMap = games.reduce((acc, game) => {
+      acc[game.id] = game.name;
+      return acc;
+    }, {} as Record<string, string>);
+
     // Group all scores by their game ID
     const scoresByGame = allScores.reduce((acc, score) => {
       const gameId = score.gameId;
       if (!acc[gameId]) {
+        // Use the current game name from the map, or fall back to the score's stored name
+        // if the game has been deleted.
+        const currentGameName = gameNameMap[gameId] || score.gameName;
         acc[gameId] = {
-          gameName: score.gameName,
+          gameName: currentGameName,
           scores: [],
         };
       }
@@ -69,6 +112,8 @@ function LeaderboardPage() {
 
     // Process each game to rank players
     return Object.values(scoresByGame).map((gameData) => {
+      if (!gameData.gameName) return null; // Don't show games without a name
+      
       // Group scores within a game by player ID
       const scoresByPlayer = gameData.scores.reduce((acc, score) => {
         if (!acc[score.playerId]) {
@@ -100,8 +145,8 @@ function LeaderboardPage() {
         gameName: gameData.gameName,
         rankedPlayers: rankedPlayers,
       };
-    });
-  }, [allScores]);
+    }).filter((game): game is NonNullable<typeof game> => game !== null);
+  }, [allScores, games]);
 
   return (
     <div className="py-10">
@@ -125,7 +170,7 @@ function LeaderboardPage() {
         {!loading && rankedGames.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {rankedGames.map((gameData) => {
-              if (gameData.rankedPlayers.length === 0) return null;
+              if (!gameData || gameData.rankedPlayers.length === 0) return null;
               return (
                 <div key={gameData.gameName}>
                   <h2 className="font-headline text-2xl sm:text-3xl text-center text-foreground mb-4 bg-primary/80 py-2 rounded-md shadow-lg">
