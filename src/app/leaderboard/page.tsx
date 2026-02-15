@@ -1,60 +1,23 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useState, useEffect, useMemo } from "react";
 import {
   collection,
   query,
-  where,
   onSnapshot,
+  orderBy,
 } from "firebase/firestore";
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useFirestore } from "@/firebase";
 import type { Score } from "@/types";
 import { Loader2, Crown } from "lucide-react";
-import { useGames } from "@/lib/hooks/use-games";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-function GameLeaderboard({ gameId }: { gameId: string }) {
-  const [scores, setScores] = useState<Score[]>([]);
-  const [loadingScores, setLoadingScores] = useState(true);
-  const firestore = useFirestore();
-
-  useEffect(() => {
-    if (!firestore) return;
-
-    const scoresQuery = query(
-      collection(firestore, "scoreSubmissions"),
-      where("gameId", "==", gameId)
-    );
-
-    const unsubscribe = onSnapshot(scoresQuery, async (snapshot) => {
-      const scoresData = snapshot.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as Score)
-      );
-
-      const topScores = scoresData
-        .sort((a, b) => b.scoreValue - a.scoreValue)
-        .slice(0, 10);
-
-      setScores(topScores);
-      setLoadingScores(false);
-    });
-
-    return () => unsubscribe();
-  }, [firestore, gameId]);
-
-  if (loadingScores) {
-    return (
-      <div className="flex justify-center items-center p-10">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
+// This component now just renders a list of scores passed to it.
+function ScoreList({ scores }: { scores: Score[] }) {
   if (scores.length === 0) {
     return (
       <p className="text-center text-foreground/80 pt-10">
@@ -94,8 +57,49 @@ function GameLeaderboard({ gameId }: { gameId: string }) {
   );
 }
 
+
 function LeaderboardPage() {
-  const { games, loading: loadingGames } = useGames();
+  const [allScores, setAllScores] = useState<Score[]>([]);
+  const [loading, setLoading] = useState(true);
+  const firestore = useFirestore();
+
+  useEffect(() => {
+    if (!firestore) return;
+
+    const scoresQuery = query(
+      collection(firestore, "scoreSubmissions"),
+      orderBy("scoreValue", "desc")
+    );
+
+    const unsubscribe = onSnapshot(scoresQuery, (snapshot) => {
+      const scoresData = snapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as Score)
+      );
+      setAllScores(scoresData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching scores: ", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [firestore]);
+
+  const groupedScores = useMemo(() => {
+    return allScores.reduce((acc, score) => {
+      const gameId = score.gameId;
+      if (!acc[gameId]) {
+        acc[gameId] = {
+          gameName: score.gameName,
+          scores: [],
+        };
+      }
+      acc[gameId].scores.push(score);
+      return acc;
+    }, {} as Record<string, { gameName: string; scores: Score[] }>);
+  }, [allScores]);
+  
+  const gameIdsWithScores = Object.keys(groupedScores);
 
   return (
     <div className="py-10">
@@ -106,27 +110,28 @@ function LeaderboardPage() {
           8 Bit Leaderboard
         </h1>
 
-        {loadingGames && (
+        {loading && (
           <div className="flex justify-center items-center p-10">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
           </div>
         )}
 
-        {!loadingGames && games.length === 0 && (
+        {!loading && gameIdsWithScores.length === 0 && (
           <p className="text-center text-foreground text-xl mt-8">
-            No active games for leaderboard.
+            No scores have been submitted yet.
           </p>
         )}
 
-        {!loadingGames && games.length > 0 && (
+        {!loading && gameIdsWithScores.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {games.map((game) => {
+            {gameIdsWithScores.map((gameId) => {
+              const gameData = groupedScores[gameId];
               return (
-                <div key={game.id}>
+                <div key={gameId}>
                   <h2 className="font-headline text-3xl sm:text-4xl text-center text-foreground mb-4 bg-primary/80 py-2 rounded-md shadow-lg">
-                    {game.name}
+                    {gameData.gameName}
                   </h2>
-                  <GameLeaderboard gameId={game.id} />
+                  <ScoreList scores={gameData.scores} />
                 </div>
               );
             })}
