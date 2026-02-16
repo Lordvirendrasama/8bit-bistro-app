@@ -27,43 +27,17 @@ export default function Footer() {
     }
   };
 
-  const navItems = [
-    { href: '/admin/dashboard', label: 'Main' },
-    { href: '/admin/users', label: 'Users' },
-    { href: '/admin/games', label: 'Games' },
-    { href: '/admin/events', label: 'Events' },
-    { href: '/admin/settings', label: 'Settings' },
-  ];
-
   if (pathname.startsWith('/admin')) {
     return (
     <footer className="w-full border-t border-border/40 bg-background/95 py-6 mt-auto">
       <div className="container flex flex-col items-center justify-center gap-4">
-        <nav className="flex flex-wrap items-center justify-center gap-4">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'text-sm font-medium transition-colors hover:text-primary',
-                pathname === item.href
-                  ? 'text-primary'
-                  : 'text-muted-foreground'
-              )}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-            <Link href="/">View App</Link>
-            </Button>
-        </div>
-        <div className="mt-4 w-full flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
+        <div className="w-full flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
             <Link href="/">
                 <Logo className="h-40" />
             </Link>
+            <Button size="lg" asChild>
+                <Link href="/admin/settings">Settings</Link>
+            </Button>
         </div>
       </div>
     </footer>
