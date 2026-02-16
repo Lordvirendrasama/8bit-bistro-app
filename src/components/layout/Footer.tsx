@@ -32,7 +32,6 @@ export default function Footer() {
     { href: '/admin/users', label: 'Users' },
     { href: '/admin/games', label: 'Games' },
     { href: '/admin/events', label: 'Events' },
-    { href: '/admin/settings', label: 'Settings' },
   ];
 
   if (pathname.startsWith('/admin')) {
@@ -57,12 +56,15 @@ export default function Footer() {
         </nav>
         <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" asChild>
+              <Link href="/admin/settings">Settings</Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
             <Link href="/">View App</Link>
             </Button>
         </div>
         <div className="mt-4 w-full flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
             <Link href="/">
-                <Logo className="h-28" />
+                <Logo className="h-40" />
             </Link>
         </div>
       </div>
@@ -74,11 +76,9 @@ export default function Footer() {
     <footer className="w-full py-8 mt-auto">
       <div className="w-full flex flex-wrap items-center justify-center gap-x-12 gap-y-6 px-4">
         <Link href="/" onClick={handleSecretClick}>
-          <Logo className="h-28" />
+          <Logo className="h-40" />
         </Link>
       </div>
     </footer>
   );
 }
-
-    
