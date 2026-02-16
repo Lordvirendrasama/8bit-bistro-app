@@ -193,7 +193,7 @@ function WhosThatPokemonPage() {
                   <div className="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/50" onClick={handlePlay}>
                     <Button
                       size="lg"
-                      className="pointer-events-none font-headline text-2xl h-20 w-48 bg-green-500 text-white hover:bg-green-600"
+                      className="pointer-events-none font-headline text-2xl h-20 w-48"
                     >
                       <Play className="mr-2 h-8 w-8" />
                       PLAY

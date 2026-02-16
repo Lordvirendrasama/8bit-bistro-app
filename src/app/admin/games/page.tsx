@@ -259,7 +259,7 @@ export default function AdminGamesPage() {
                           htmlFor={`active-switch-${game.id}`}
                           className={
                             game.isActive
-                              ? "text-green-400"
+                              ? "text-primary"
                               : "text-muted-foreground"
                           }
                         >
