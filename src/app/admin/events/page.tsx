@@ -1,9 +1,9 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
 import {
   collection,
-  onSnapshot,
   query,
   orderBy,
   addDoc,
@@ -17,7 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { useFirestore, FirestorePermissionError, errorEmitter } from "@/firebase";
+import { useFirestore, FirestorePermissionError, errorEmitter, useCollection, useMemoFirebase } from "@/firebase";
 import type { Event } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -52,36 +52,20 @@ import { format } from 'date-fns';
 
 export default function AdminEventsPage() {
   const firestore = useFirestore();
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const eventsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "events"), orderBy("createdAt", "desc"));
+  }, [firestore]);
+  
+  const { data: events, isLoading: loading } = useCollection<Event>(eventsQuery);
+
   const [newEventName, setNewEventName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
 
   const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
-
-  useEffect(() => {
-    if (!firestore) return;
-    const q = query(collection(firestore, "events"), orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const eventsData: Event[] = [];
-      snapshot.forEach((doc) => {
-        eventsData.push({ id: doc.id, ...doc.data() } as Event);
-      });
-      setEvents(eventsData);
-      setLoading(false);
-    }, (err) => {
-        const contextualError = new FirestorePermissionError({
-            path: 'events',
-            operation: 'list',
-        });
-        errorEmitter.emit('permission-error', contextualError);
-        setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [firestore]);
 
   const handleAddEvent = (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,7 +202,7 @@ export default function AdminEventsPage() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {events.length === 0 && (
+                {(!events || events.length === 0) && (
                   <TableRow>
                     <TableCell
                       colSpan={3}

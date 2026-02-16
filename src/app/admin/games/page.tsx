@@ -1,10 +1,9 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   collection,
-  onSnapshot,
   query,
   orderBy,
   addDoc,
@@ -20,7 +19,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { useFirestore, FirestorePermissionError, errorEmitter } from "@/firebase";
+import { useFirestore, FirestorePermissionError, errorEmitter, useCollection, useMemoFirebase } from "@/firebase";
 import type { Game } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -70,11 +69,17 @@ import { Label } from "@/components/ui/label";
 
 export default function AdminGamesPage() {
   const firestore = useFirestore();
-  const [games, setGames] = useState<Game[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+  
+  const gamesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "games"), orderBy("name"));
+  }, [firestore]);
+  
+  const { data: games, isLoading: loading } = useCollection<Game>(gamesQuery);
+  
   const [newGameName, setNewGameName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
@@ -83,28 +88,6 @@ export default function AdminGamesPage() {
 
   const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [gameToDelete, setGameToDelete] = useState<Game | null>(null);
-
-  useEffect(() => {
-    if (!firestore) return;
-    const q = query(collection(firestore, "games"), orderBy("name"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const gamesData: Game[] = [];
-      snapshot.forEach((doc) => {
-        gamesData.push({ id: doc.id, ...doc.data() } as Game);
-      });
-      setGames(gamesData);
-      setLoading(false);
-    }, (err) => {
-        const contextualError = new FirestorePermissionError({
-            path: 'games',
-            operation: 'list',
-        });
-        errorEmitter.emit('permission-error', contextualError);
-        setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [firestore]);
 
   const handleAddGame = (e: React.FormEvent) => {
     e.preventDefault();
@@ -261,7 +244,7 @@ export default function AdminGamesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {games.map((game) => (
+                {(games || []).map((game) => (
                   <TableRow key={game.id}>
                     <TableCell className="font-medium">{game.name}</TableCell>
                     <TableCell>
@@ -309,7 +292,7 @@ export default function AdminGamesPage() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {games.length === 0 && (
+                {(!games || games.length === 0) && (
                   <TableRow>
                     <TableCell
                       colSpan={3}
