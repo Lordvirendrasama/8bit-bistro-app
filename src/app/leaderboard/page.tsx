@@ -11,7 +11,7 @@ import {
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import type { Score, Game, Event } from "@/types";
+import type { Score, Game } from "@/types";
 import { Loader2, Crown, ChevronDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -22,19 +22,9 @@ import {
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useEvents } from "@/lib/hooks/use-events";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 function LeaderboardPage() {
   const firestore = useFirestore();
-  const { events, loading: loadingEvents } = useEvents();
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   const gamesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -43,25 +33,13 @@ function LeaderboardPage() {
   const { data: games, isLoading: loadingGames } = useCollection<Game>(gamesQuery);
 
   const scoresQuery = useMemoFirebase(() => {
-    if (!firestore || !selectedEventId) return null;
+    if (!firestore) return null;
     return query(
       collection(firestore, "scoreSubmissions"),
-      where("eventId", "==", selectedEventId),
       orderBy("scoreValue", "desc")
     );
-  }, [firestore, selectedEventId]);
+  }, [firestore]);
   const { data: allScores, isLoading: loadingScores } = useCollection<Score>(scoresQuery);
-
-  useEffect(() => {
-    if (!loadingEvents && events.length > 0 && !selectedEventId) {
-      const floatersEvent = events.find(e => e.name === "Floaters and socks");
-      if (floatersEvent) {
-        setSelectedEventId(floatersEvent.id);
-      } else if (events.length > 0) {
-        setSelectedEventId(events[0].id);
-      }
-    }
-  }, [events, loadingEvents, selectedEventId]);
 
   const rankedGames = useMemo(() => {
     const gameNameMap = (games || []).reduce((acc, game) => {
@@ -115,36 +93,14 @@ function LeaderboardPage() {
     }).filter((game): game is NonNullable<typeof game> => game !== null);
   }, [allScores, games]);
   
-  const isLoading = loadingEvents || loadingGames || loadingScores;
+  const isLoading = loadingGames || loadingScores;
 
   return (
     <div className="py-10">
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <h1 className="font-headline text-4xl sm:text-6xl text-center font-black text-primary uppercase tracking-wider mb-4">
+        <h1 className="font-headline text-4xl sm:text-6xl text-center font-black text-primary uppercase tracking-wider mb-8">
           Leaderboard
         </h1>
-
-        <div className="max-w-md mx-auto mb-8">
-          <Select onValueChange={setSelectedEventId} value={selectedEventId ?? undefined}>
-            <SelectTrigger className="w-full h-12 text-lg">
-              <SelectValue placeholder="Select an event..." />
-            </SelectTrigger>
-            <SelectContent>
-              {loadingEvents ? (
-                <div className="p-4 flex justify-center">
-                  <Loader2 className="h-5 w-5 animate-spin"/>
-                </div>
-              ) : (
-                events.map((event) => (
-                  <SelectItem key={event.id} value={event.id}>
-                    {event.name}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-
 
         {isLoading && (
           <div className="flex justify-center items-center p-10">
@@ -152,19 +108,13 @@ function LeaderboardPage() {
           </div>
         )}
 
-        {!isLoading && !selectedEventId && (
-            <p className="text-center text-foreground text-xl mt-8">
-                Please select an event to view the leaderboard.
-            </p>
-        )}
-
-        {!isLoading && selectedEventId && rankedGames.length === 0 && (
+        {!isLoading && rankedGames.length === 0 && (
           <p className="text-center text-foreground text-xl mt-8">
-            No scores have been submitted for this event yet.
+            No scores have been submitted yet.
           </p>
         )}
 
-        {!isLoading && selectedEventId && rankedGames.length > 0 && (
+        {!isLoading && rankedGames.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {rankedGames.map((gameData, gameIndex) => {
               if (!gameData || gameData.rankedPlayers.length === 0) return null;

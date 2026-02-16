@@ -4,7 +4,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Player",
       "type": "object",
-      "description": "Represents a participant in the retro gaming event who registers and submits scores for a specific event.",
+      "description": "Represents a participant in the retro gaming event who registers and submits scores.",
       "properties": {
         "id": {
           "type": "string",
@@ -26,18 +26,13 @@
           "type": "string",
           "description": "Timestamp when the player record was created.",
           "format": "date-time"
-        },
-        "eventId": {
-          "type": "string",
-          "description": "Reference to the Event the player is registered for."
         }
       },
       "required": [
         "id",
         "name",
         "groupSize",
-        "createdAt",
-        "eventId"
+        "createdAt"
       ]
     },
     "Game": {
@@ -69,7 +64,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "ScoreSubmission",
       "type": "object",
-      "description": "Represents a participant's submitted high score for a specific game and event, awaiting approval.",
+      "description": "Represents a participant's submitted high score for a specific game, awaiting approval.",
       "properties": {
         "id": {
           "type": "string",
@@ -82,14 +77,6 @@
         "gameId": {
           "type": "string",
           "description": "Reference to the Game for which the score was submitted."
-        },
-        "eventId": {
-          "type": "string",
-          "description": "Reference to the Event for which the score was submitted."
-        },
-        "eventName": {
-          "type": "string",
-          "description": "Denormalized name of the event for display purposes."
         },
         "scoreValue": {
           "type": "number",
@@ -109,36 +96,9 @@
         "id",
         "playerId",
         "gameId",
-        "eventId",
         "scoreValue",
         "level",
         "submittedAt"
-      ]
-    },
-    "Event": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Event",
-      "type": "object",
-      "description": "Represents a specific event or tournament where scores are collected.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Event entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the event."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the event record was created.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "createdAt"
       ]
     }
   },
@@ -199,22 +159,6 @@
         }
       },
       {
-        "path": "/events/{eventId}",
-        "definition": {
-          "entityName": "Event",
-          "schema": {
-            "$ref": "#/backend/entities/Event"
-          },
-          "description": "Stores definitions of events. This collection is publicly readable.",
-          "params": [
-            {
-              "name": "eventId",
-              "description": "The unique identifier for a specific event."
-            }
-          ]
-        }
-      },
-      {
         "path": "/admins/{adminId}",
         "definition": {
           "entityName": "Player",
@@ -234,5 +178,3 @@
     "reasoning": "The Firestore data structure is designed to be secure, scalable, and highly debuggable by strictly adhering to the core design principles of Authorization Independence, Structural Segregation, and Access Modeling. The structure leverages denormalization to eliminate `get()` calls in security rules, enabling atomic operations and simplifying rule logic.\n\n**Authorization Independence (CRITICAL):**\nThis is achieved primarily through strategic denormalization. For the `scoreSubmissions` collection, critical authorization and display data from parent entities (`Player` and `Game`) are copied directly into each `scoreSubmission` document. Specifically, `playerName` and `playerInstagramHandle` (from the `Player` entity) and `gameName` (from the `Game` entity) are included in every `scoreSubmission`. This means that security rules, particularly for `read` operations on the leaderboard, do not need to fetch related `Player` or `Game` documents using `get()`. Authorization can be determined solely by inspecting the `resource.data` of the `scoreSubmission` document itself (e.g., checking `resource.data.playerId` against `request.auth.uid` or `resource.data.status`). This significantly reduces rule complexity, improves performance, and prevents rule-based deadlocks in atomic batch operations or transactions.\n\n**QAPs (Rules are not Filters):**\nThe structure ensures Query-Accessible Paths (QAPs) for efficient and secure `list` operations:\n1.  **Public Leaderboard:** The `/scoreSubmissions` collection allows efficient `list` queries for approved scores. Security rules can enforce `allow list: if resource.data.status == 'approved';` This precisely matches the query `where('status', '==', 'approved')`, ensuring only publicly approved scores are returned without client-side filtering of sensitive data. Denormalized `playerName` and `playerInstagramHandle` facilitate displaying leaderboard entries directly.\n2.  **Player-Specific Submissions:** Players can securely `list` their own `scoreSubmissions` by querying `where('playerId', '==', request.auth.uid)`. The rules can grant access `if resource.data.playerId == request.auth.uid`.\n3.  **Admin Access:** Admins have broad `list` access across all collections by checking their `uid` against the `/admins/{adminId}` collection, which uses 'existence over content' for role-based access. This ensures admins can view all submissions for moderation without complex filtering or rule logic.\n\n**Structural Segregation:**\nEach collection is designed with a homogeneous security posture:\n*   `/players/{playerId}`: Private, owned by the respective `playerId`.\n*   `/games/{gameId}`: Publicly readable for game selection; writable only by admins.\n*   `/scoreSubmissions/{scoreSubmissionId}`: Publicly readable for approved scores, owner-readable for pending scores, admin-writable for moderation.\n*   `/admins/{adminId}`: Marker for admin UIDs, minimal data, existence-based authorization.\nThis segregation simplifies security rules dramatically, making them easier to write, understand, and debug.\n\n**Access Modeling:**\n*   **Private Data:** `/players/{playerId}` exemplifies path-based ownership for user-specific data.\n*   **Global Roles (DBAC):** `/admins/{adminId}` uses the 'existence over content' pattern, where the mere presence of a document in this collection signifies admin privileges for the `adminId` (which is the user's `uid`).\n\n**Addressing the `auth/invalid-api-key` Error:**\nThe reported `Runtime FirebaseError: Firebase: Error (auth/invalid-api-key)` is a client-side configuration error, indicating an issue with the Firebase project settings provided during initialization (e.g., in `src/lib/firebase.ts`). This is unrelated to the Firestore data structure design. Please ensure your Firebase configuration object, especially the `apiKey`, is correctly set up for your Firebase project in the client-side code."
   }
 }
-
-    

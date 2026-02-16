@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, FormEvent, ChangeEvent, useEffect } from "react";
+import { useState, useRef, FormEvent, ChangeEvent, useEffect, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
@@ -39,15 +39,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useGames } from "@/lib/hooks/use-games";
 import { usePlayers } from "@/lib/hooks/use-players";
-import { useEvents } from "@/lib/hooks/use-events";
-import type { Player, Event } from "@/types";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import type { Player } from "@/types";
 import {
   Popover,
   PopoverContent,
@@ -69,13 +61,11 @@ const AddPlayerModal = ({
   onOpenChange,
   onPlayerAdded,
   initialPlayerName = "",
-  eventId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPlayerAdded: (name: string) => void;
   initialPlayerName?: string;
-  eventId: string;
 }) => {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -84,7 +74,7 @@ const AddPlayerModal = ({
 
   const handleAddPlayerSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!firestore || !eventId) return;
+    if (!firestore) return;
 
     const formData = new FormData(e.currentTarget);
     const name = (formData.get("name") as string)?.trim();
@@ -110,11 +100,9 @@ const AddPlayerModal = ({
 
     setIsAddingPlayer(true);
     const playersRef = collection(firestore, "players");
-    // Check for player name within the same event
     const q = query(
       playersRef,
-      where("name", "==", name),
-      where("eventId", "==", eventId)
+      where("name", "==", name)
     );
 
     getDocs(q)
@@ -123,7 +111,7 @@ const AddPlayerModal = ({
           toast({
             variant: "destructive",
             title: "Player Exists",
-            description: `A player with the name "${name}" is already registered for this event.`,
+            description: `A player with the name "${name}" is already registered.`,
           });
           setIsAddingPlayer(false);
           return;
@@ -133,7 +121,6 @@ const AddPlayerModal = ({
           name,
           instagram,
           groupSize,
-          eventId,
           createdAt: serverTimestamp(),
         };
 
@@ -231,7 +218,7 @@ const AddPlayerModal = ({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isAddingPlayer || !eventId}>
+            <Button type="submit" disabled={isAddingPlayer}>
               {isAddingPlayer && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
@@ -250,7 +237,6 @@ function DashboardPage() {
   const firestore = useFirestore();
   const { games, loading: gamesLoading } = useGames();
   const { players, loading: playersLoading } = usePlayers();
-  const { events, loading: eventsLoading } = useEvents();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -259,8 +245,6 @@ function DashboardPage() {
   const [selectedGameId, setSelectedGameId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-
-  const [selectedEventId, setSelectedEventId] = useState("");
 
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [playerSearch, setPlayerSearch] = useState("");
@@ -284,25 +268,20 @@ function DashboardPage() {
     }
   }, [user, userLoading, auth, toast]);
   
-  const playersForEvent = useMemo(() => {
-    if (!selectedEventId) return [];
-    return players.filter(p => p.eventId === selectedEventId);
-  }, [players, selectedEventId]);
-
   useEffect(() => {
-    if (newlyAddedPlayerName && playersForEvent.length > 0) {
-      const newPlayer = playersForEvent.find((p) => p.name === newlyAddedPlayerName);
+    if (newlyAddedPlayerName && players.length > 0) {
+      const newPlayer = players.find((p) => p.name === newlyAddedPlayerName);
       if (newPlayer) {
         setSelectedPlayer(newPlayer);
         setNewlyAddedPlayerName(null);
       }
     }
-  }, [playersForEvent, newlyAddedPlayerName]);
+  }, [players, newlyAddedPlayerName]);
 
   const filteredPlayers =
     playerSearch === ""
-      ? playersForEvent
-      : playersForEvent.filter((p) =>
+      ? players
+      : players.filter((p) =>
           p.name.toLowerCase().includes(playerSearch.toLowerCase())
         );
 
@@ -312,7 +291,6 @@ function DashboardPage() {
     const scoreValue = formData.get("scoreValue") as string;
     const level = formData.get("level") as string;
     const game = games.find((g) => g.id === selectedGameId);
-    const currentEvent = events.find(e => e.id === selectedEventId);
 
     if (
       !user ||
@@ -321,14 +299,13 @@ function DashboardPage() {
       !scoreValue ||
       !level ||
       !selectedPlayer ||
-      !game ||
-      !currentEvent
+      !game
     ) {
       toast({
         variant: "destructive",
         title: "Submission Failed",
         description:
-          "Please select an event, player, game, and enter a score/level.",
+          "Please select a player, game, and enter a score/level.",
       });
       return;
     }
@@ -341,8 +318,6 @@ function DashboardPage() {
       playerInstagram: selectedPlayer.instagram || "",
       gameId: selectedGameId,
       gameName: game.name,
-      eventId: currentEvent.id,
-      eventName: currentEvent.name,
       scoreValue: Number(scoreValue),
       level: Number(level),
       submittedAt: serverTimestamp(),
@@ -395,39 +370,13 @@ function DashboardPage() {
               Tournament Desk
             </CardTitle>
             <CardDescription>
-              Select an event, then register players and submit scores.
+              Register players and submit scores.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <Label>Event</Label>
-                {eventsLoading ? (
-                   <div className="flex justify-center p-4">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                  </div>
-                ) : (
-                  <Select onValueChange={(value) => {
-                      setSelectedEventId(value);
-                      setSelectedPlayer(null);
-                      setSelectedGameId("");
-                    }} 
-                    value={selectedEventId}>
-                    <SelectTrigger className="w-full h-11">
-                      <SelectValue placeholder="Select an event to begin..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {events.map((event) => (
-                        <SelectItem key={event.id} value={event.id}>
-                          {event.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
               
-              <fieldset disabled={!selectedEventId} className="space-y-6">
+              <div className="space-y-6">
                 <div>
                   <Label>Player</Label>
                   {playersLoading ? (
@@ -508,7 +457,7 @@ function DashboardPage() {
                                 ))
                               ) : (
                                 <p className="p-4 text-center text-sm text-muted-foreground">
-                                  No players found for this event.
+                                  No players found.
                                 </p>
                               )}
                             </ScrollArea>
@@ -594,7 +543,7 @@ function DashboardPage() {
                     "Submit Score"
                   )}
                 </Button>
-              </fieldset>
+              </div>
             </form>
           </CardContent>
         </Card>
@@ -604,7 +553,6 @@ function DashboardPage() {
         open={isAddPlayerModalOpen}
         onOpenChange={setIsAddPlayerModalOpen}
         initialPlayerName={playerSearch}
-        eventId={selectedEventId}
         onPlayerAdded={(playerName) => {
           setNewlyAddedPlayerName(playerName);
           setIsAddPlayerModalOpen(false);
@@ -645,5 +593,3 @@ function DashboardPage() {
 }
 
 export default DashboardPage;
-
-    

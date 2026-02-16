@@ -6,7 +6,6 @@ export type Player = {
   instagram?: string;
   groupSize: number;
   createdAt: Timestamp;
-  eventId: string;
 };
 
 export type Game = {
@@ -25,11 +24,9 @@ export type Score = {
   id:string;
   playerId: string;
   gameId: string;
-  eventId: string;
   playerName: string;
   playerInstagram: string;
   gameName: string;
-  eventName: string;
   scoreValue: number;
   level: number;
   submittedAt: Timestamp;
