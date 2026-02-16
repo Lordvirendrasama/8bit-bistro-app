@@ -18,13 +18,10 @@
  *
  * Key Security Decisions:
  * - Admin Access: Administrative privileges are now open, allowing any user to perform
- *   admin actions.
- * - Public Data: The `/games` collection and the `/appConfig/event` document are
- *   publicly readable to allow any user or client to fetch essential app information.
- * - Mixed-Access for Submissions: The `/scoreSubmissions` collection is publicly listable
- *   to support the main leaderboard query (for approved scores). However, direct reads (`get`)
- *   of individual documents are restricted to the owner, admins, or if the score is publicly
- *   approved, ensuring pending submissions remain private.
+ *   admin actions. This is a temporary, permissive setting for ease of development.
+ * - Public Data: The `/games` and `/events` collections are publicly readable.
+ * - Score Submissions: All scores are currently public to read and write to simplify
+ *   development, leveraging the open admin access.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -39,84 +36,61 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
     function isAdmin() {
+      // For development, all authenticated users are considered admins.
       return true;
     }
 
     /**
      * @description
-     *   Manages player profiles. Each player's document is private and can only be
-     *   created and modified by the authenticated user themselves. Admins can read
-     *   all player data.
+     *   Manages player profiles.
      * @path /players/{playerId}
      */
     match /players/{playerId} {
       allow get: if isOwner(playerId) || isAdmin();
       allow list: if isSignedIn() || isAdmin();
       allow create: if isSignedIn();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow update, delete: if isAdmin();
     }
 
     /**
      * @description
-     *   Manages the list of available retro games. This data is public for all users to read,
-     *   but only administrators can create, update, or delete game entries.
+     *   Manages the list of available retro games. Publicly readable.
      * @path /games/{gameId}
      */
     match /games/{gameId} {
-      allow get, list: if true;
-      allow create, update, delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     /**
      * @description
-     *   Manages the list of events. This data is public for all users to read,
-     *   but only administrators can create, update, or delete event entries.
+     *   Manages the list of events. Publicly readable.
      * @path /events/{eventId}
      */
     match /events/{eventId} {
-      allow get, list: if true;
-      allow create, update, delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     /**
      * @description
-     *   Stores player score submissions. Creating a submission is allowed for any signed-in
-     *   user. Reads are conditional: public if 'approved', otherwise private to the owner
-     *   and admins. Updates (moderation) and deletions are restricted to admins.
+     *   Stores player score submissions.
      * @path /scoreSubmissions/{scoreSubmissionId}
      */
     match /scoreSubmissions/{scoreSubmissionId} {
-      // Admins have full read/write access.
-      allow read, write: if isAdmin();
-
-      // Players can create their own submissions.
-      allow create: if isSignedIn();
-
-      // All scores are public.
-      allow get: if true;
-      
-      // Allow list queries for the leaderboard.
-      allow list: if true;
+      // Due to isAdmin() being true, all operations are currently allowed.
+      allow read, write: if true;
     }
 
     /**
-     * @description
-     *   A role-based access collection. The existence of a document here grants admin
-     *   privileges. This collection is locked down; only existing admins can view or
-     *   manage the list of other admins.
-     * @path /admins/{adminId}
-     */
+      * @description
+      *   A role-based access collection.
+      * @path /admins/{adminId}
+      */
     match /admins/{adminId} {
-      allow get, list: if isAdmin();
-      allow create, update, delete: if isAdmin();
+      // Admin management is open while isAdmin() is true.
+      allow read, write: if isAdmin();
     }
   }
 }
-
-    
