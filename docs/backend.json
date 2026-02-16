@@ -100,6 +100,32 @@
         "level",
         "submittedAt"
       ]
+    },
+    "Event": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Event",
+      "type": "object",
+      "description": "Represents a time-bound competition or tournament within the arcade.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Event entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The official name of the event (e.g., 'Summer Showdown 2024')."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the event record was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "createdAt"
+      ]
     }
   },
   "auth": {
@@ -170,6 +196,22 @@
             {
               "name": "adminId",
               "description": "The unique identifier (Firebase Authentication UID) of a user who has administrative privileges. This ID corresponds to a 'playerId'."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/events/{eventId}",
+        "definition": {
+          "entityName": "Event",
+          "schema": {
+            "$ref": "#/backend/entities/Event"
+          },
+          "description": "Stores event details. Event names are denormalized into 'scoreSubmissions' to support event-specific leaderboards without extra reads.",
+          "params": [
+            {
+              "name": "eventId",
+              "description": "The unique identifier for a specific event."
             }
           ]
         }
