@@ -49,7 +49,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <div className="fixed inset-0 bg-background/70 backdrop-blur-sm" />
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
         <div className="relative flex min-h-screen flex-col">
           <FirebaseClientProvider>
             <ClientLayout>{children}</ClientLayout>
