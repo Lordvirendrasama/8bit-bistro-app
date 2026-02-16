@@ -55,7 +55,7 @@ export default function Footer() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="default" size="sm" asChild>
               <Link href="/admin/settings">Settings</Link>
             </Button>
             <Button variant="outline" size="sm" asChild>
