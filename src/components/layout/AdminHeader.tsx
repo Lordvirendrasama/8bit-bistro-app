@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Settings } from 'lucide-react';
 import Logo from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -13,7 +14,6 @@ export default function AdminHeader() {
     { href: '/admin/users', label: 'Users' },
     { href: '/admin/games', label: 'Games' },
     { href: '/admin/events', label: 'Events' },
-    { href: '/admin/settings', label: 'Settings' },
   ];
 
   return (
@@ -26,7 +26,13 @@ export default function AdminHeader() {
             </Link>
             <div className="flex items-center justify-self-end gap-2">
                 <Button variant="outline" size="sm" asChild>
-                <Link href="/">View App</Link>
+                    <Link href="/admin/settings">
+                        <Settings className="mr-2 h-4 w-4" />
+                        Settings
+                    </Link>
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                    <Link href="/">View App</Link>
                 </Button>
             </div>
         </div>
