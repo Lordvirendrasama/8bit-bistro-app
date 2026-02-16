@@ -14,12 +14,6 @@ export type Game = {
   isActive: boolean;
 };
 
-export type Event = {
-  id: string;
-  name: string;
-  createdAt: Timestamp;
-};
-
 export type Score = {
   id:string;
   playerId: string;
@@ -31,5 +25,3 @@ export type Score = {
   level: number;
   submittedAt: Timestamp;
 };
-
-    
