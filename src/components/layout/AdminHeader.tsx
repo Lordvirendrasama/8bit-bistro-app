@@ -16,7 +16,7 @@ export default function AdminHeader() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-black/90 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-black/95 backdrop-blur-sm">
       <div className="container flex h-40 flex-col items-center justify-center gap-4">
         <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center">
             <div />

@@ -30,15 +30,13 @@ export default function Footer() {
   if (pathname.startsWith('/admin')) {
     return (
     <footer className="w-full border-t border-border/40 bg-background/95 py-6 mt-auto">
-      <div className="container flex flex-col items-center justify-center gap-4">
-        <div className="w-full flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
-            <Link href="/">
-                <Logo className="h-40" />
-            </Link>
-            <Button size="lg" asChild>
-                <Link href="/admin/settings">Settings</Link>
-            </Button>
-        </div>
+      <div className="container flex items-center justify-center gap-8">
+          <Link href="/">
+              <Logo className="h-40" />
+          </Link>
+          <Button size="lg" asChild>
+              <Link href="/admin/settings">Settings</Link>
+          </Button>
       </div>
     </footer>
     )
