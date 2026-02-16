@@ -56,11 +56,11 @@ export default function Footer() {
         </nav>
         <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboard">View App</Link>
+            <Link href="/">View App</Link>
             </Button>
         </div>
         <div className="mt-4 w-full flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
-            <Link href="/dashboard">
+            <Link href="/">
                 <Logo className="h-28" />
             </Link>
         </div>
@@ -72,7 +72,7 @@ export default function Footer() {
   return (
     <footer className="w-full py-8 mt-auto">
       <div className="w-full flex flex-wrap items-center justify-center gap-x-12 gap-y-6 px-4">
-        <Link href="/dashboard" onClick={handleSecretClick}>
+        <Link href="/" onClick={handleSecretClick}>
           <Logo className="h-28" />
         </Link>
       </div>
