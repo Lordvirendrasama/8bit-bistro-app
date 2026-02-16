@@ -17,11 +17,10 @@
  *   admin privileges to the corresponding user UID.
  *
  * Key Security Decisions:
- * - Admin Access: Administrative privileges are now open, allowing any user to perform
- *   admin actions. This is a temporary, permissive setting for ease of development.
- * - Public Data: The `/games` and `/events` collections are publicly readable.
- * - Score Submissions: All scores are currently public to read and write to simplify
- *   development, leveraging the open admin access.
+ * - Admin Access: For development, all authenticated users are considered admins.
+ * - Public Data: The `/games` and `/events` collections are publicly readable. Approved scores
+ *   are also publicly readable.
+ * - Score Submissions: Writing scores is limited to authenticated (admin) users.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -38,7 +37,7 @@ service cloud.firestore {
 
     function isAdmin() {
       // For development, all authenticated users are considered admins.
-      return true;
+      return isSignedIn();
     }
 
     /**
@@ -48,7 +47,7 @@ service cloud.firestore {
      */
     match /players/{playerId} {
       allow get: if isOwner(playerId) || isAdmin();
-      allow list: if isSignedIn() || isAdmin();
+      allow list: if isSignedIn();
       allow create: if isSignedIn();
       allow update, delete: if isAdmin();
     }
@@ -79,8 +78,8 @@ service cloud.firestore {
      * @path /scoreSubmissions/{scoreSubmissionId}
      */
     match /scoreSubmissions/{scoreSubmissionId} {
-      // Due to isAdmin() being true, all operations are currently allowed.
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     /**
@@ -89,7 +88,6 @@ service cloud.firestore {
       * @path /admins/{adminId}
       */
     match /admins/{adminId} {
-      // Admin management is open while isAdmin() is true.
       allow read, write: if isAdmin();
     }
   }
