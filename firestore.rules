@@ -2,9 +2,26 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // This is a temporary rule to fix deployment issues.
-    // It allows all reads and writes to all collections.
-    match /{document=**} {
+    // These rules are temporarily wide-open to force a server-side rule update
+    // and unblock development. This is not secure for a production app.
+
+    match /players/{playerId} {
+      allow read, write: if true;
+    }
+
+    match /games/{gameId} {
+      allow read, write: if true;
+    }
+
+    match /scoreSubmissions/{scoreSubmissionId} {
+      allow read, write: if true;
+    }
+
+    match /admins/{adminId} {
+      allow read, write: if true;
+    }
+
+    match /events/{eventId} {
       allow read, write: if true;
     }
   }
