@@ -61,7 +61,7 @@ export default function Footer() {
         </div>
         <div className="mt-4 w-full flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
             <Link href="/dashboard">
-                <Logo className="h-20" />
+                <Logo className="h-28" />
             </Link>
         </div>
       </div>
@@ -73,7 +73,7 @@ export default function Footer() {
     <footer className="w-full py-8 mt-auto">
       <div className="w-full flex flex-wrap items-center justify-center gap-x-12 gap-y-6 px-4">
         <Link href="/dashboard" onClick={handleSecretClick}>
-          <Logo className="h-20" />
+          <Logo className="h-28" />
         </Link>
       </div>
     </footer>

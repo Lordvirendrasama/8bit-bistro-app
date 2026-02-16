@@ -12,7 +12,7 @@ export function SponsorLogos() {
       </CardHeader>
       <CardContent className="flex flex-col items-center justify-center gap-8 pt-6">
         <Link href="/dashboard">
-          <Logo className="h-24" />
+          <Logo className="h-32" />
         </Link>
       </CardContent>
     </Card>
