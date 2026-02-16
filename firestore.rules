@@ -10,6 +10,7 @@
  * The data is organized into several top-level collections:
  * - /players/{playerId}: Stores private user profiles, keyed by the user's auth UID.
  * - /games/{gameId}: A publicly readable list of games available at the event.
+ * - /events/{eventId}: A publicly readable list of events.
  * - /scoreSubmissions/{scoreSubmissionId}: A mixed-access collection where approved scores
  *   are public, but pending/rejected scores are private to the submitter and admins.
  * - /admins/{adminId}: An access-control list where the existence of a document grants
@@ -74,6 +75,17 @@ service cloud.firestore {
 
     /**
      * @description
+     *   Manages the list of events. This data is public for all users to read,
+     *   but only administrators can create, update, or delete event entries.
+     * @path /events/{eventId}
+     */
+    match /events/{eventId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description
      *   Stores player score submissions. Creating a submission is allowed for any signed-in
      *   user. Reads are conditional: public if 'approved', otherwise private to the owner
      *   and admins. Updates (moderation) and deletions are restricted to admins.
@@ -106,3 +118,5 @@ service cloud.firestore {
     }
   }
 }
+
+    

@@ -39,7 +39,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useGames } from "@/lib/hooks/use-games";
 import { usePlayers } from "@/lib/hooks/use-players";
-import type { Player } from "@/types";
+import { useEvents } from "@/lib/hooks/use-events";
+import type { Player, Event } from "@/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Popover,
   PopoverContent,
@@ -61,11 +69,13 @@ const AddPlayerModal = ({
   onOpenChange,
   onPlayerAdded,
   initialPlayerName = "",
+  eventId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPlayerAdded: (name: string) => void;
   initialPlayerName?: string;
+  eventId: string;
 }) => {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -74,7 +84,7 @@ const AddPlayerModal = ({
 
   const handleAddPlayerSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!firestore) return;
+    if (!firestore || !eventId) return;
 
     const formData = new FormData(e.currentTarget);
     const name = (formData.get("name") as string)?.trim();
@@ -100,7 +110,12 @@ const AddPlayerModal = ({
 
     setIsAddingPlayer(true);
     const playersRef = collection(firestore, "players");
-    const q = query(playersRef, where("name", "==", name));
+    // Check for player name within the same event
+    const q = query(
+      playersRef,
+      where("name", "==", name),
+      where("eventId", "==", eventId)
+    );
 
     getDocs(q)
       .then((querySnapshot) => {
@@ -108,7 +123,7 @@ const AddPlayerModal = ({
           toast({
             variant: "destructive",
             title: "Player Exists",
-            description: `A player with the name "${name}" is already registered.`,
+            description: `A player with the name "${name}" is already registered for this event.`,
           });
           setIsAddingPlayer(false);
           return;
@@ -118,6 +133,7 @@ const AddPlayerModal = ({
           name,
           instagram,
           groupSize,
+          eventId,
           createdAt: serverTimestamp(),
         };
 
@@ -215,7 +231,7 @@ const AddPlayerModal = ({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isAddingPlayer}>
+            <Button type="submit" disabled={isAddingPlayer || !eventId}>
               {isAddingPlayer && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
@@ -234,6 +250,7 @@ function DashboardPage() {
   const firestore = useFirestore();
   const { games, loading: gamesLoading } = useGames();
   const { players, loading: playersLoading } = usePlayers();
+  const { events, loading: eventsLoading } = useEvents();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -243,12 +260,12 @@ function DashboardPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  // Player selection state
+  const [selectedEventId, setSelectedEventId] = useState("");
+
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [playerSearch, setPlayerSearch] = useState("");
   const [isPlayerPopoverOpen, setIsPlayerPopoverOpen] = useState(false);
 
-  // Add player modal state
   const [isAddPlayerModalOpen, setIsAddPlayerModalOpen] = useState(false);
   const [newlyAddedPlayerName, setNewlyAddedPlayerName] = useState<
     string | null
@@ -266,21 +283,26 @@ function DashboardPage() {
       });
     }
   }, [user, userLoading, auth, toast]);
+  
+  const playersForEvent = useMemo(() => {
+    if (!selectedEventId) return [];
+    return players.filter(p => p.eventId === selectedEventId);
+  }, [players, selectedEventId]);
 
   useEffect(() => {
-    if (newlyAddedPlayerName && players.length > 0) {
-      const newPlayer = players.find((p) => p.name === newlyAddedPlayerName);
+    if (newlyAddedPlayerName && playersForEvent.length > 0) {
+      const newPlayer = playersForEvent.find((p) => p.name === newlyAddedPlayerName);
       if (newPlayer) {
         setSelectedPlayer(newPlayer);
         setNewlyAddedPlayerName(null);
       }
     }
-  }, [players, newlyAddedPlayerName]);
+  }, [playersForEvent, newlyAddedPlayerName]);
 
   const filteredPlayers =
     playerSearch === ""
-      ? players
-      : players.filter((p) =>
+      ? playersForEvent
+      : playersForEvent.filter((p) =>
           p.name.toLowerCase().includes(playerSearch.toLowerCase())
         );
 
@@ -290,6 +312,7 @@ function DashboardPage() {
     const scoreValue = formData.get("scoreValue") as string;
     const level = formData.get("level") as string;
     const game = games.find((g) => g.id === selectedGameId);
+    const currentEvent = events.find(e => e.id === selectedEventId);
 
     if (
       !user ||
@@ -298,13 +321,14 @@ function DashboardPage() {
       !scoreValue ||
       !level ||
       !selectedPlayer ||
-      !game
+      !game ||
+      !currentEvent
     ) {
       toast({
         variant: "destructive",
         title: "Submission Failed",
         description:
-          "Please select a player, a game, enter a score, and a level.",
+          "Please select an event, player, game, and enter a score/level.",
       });
       return;
     }
@@ -317,6 +341,8 @@ function DashboardPage() {
       playerInstagram: selectedPlayer.instagram || "",
       gameId: selectedGameId,
       gameName: game.name,
+      eventId: currentEvent.id,
+      eventName: currentEvent.name,
       scoreValue: Number(scoreValue),
       level: Number(level),
       submittedAt: serverTimestamp(),
@@ -327,7 +353,6 @@ function DashboardPage() {
     addDoc(scoreSubmissionsRef, scoreData)
       .then(() => {
         setShowSuccessModal(true);
-        // Reset form
         formRef.current?.reset();
         setSelectedGameId("");
         setSelectedPlayer(null);
@@ -370,177 +395,206 @@ function DashboardPage() {
               Tournament Desk
             </CardTitle>
             <CardDescription>
-              Select a player, enter their score, and submit.
+              Select an event, then register players and submit scores.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <Label>Player</Label>
-                {playersLoading ? (
-                  <div className="flex justify-center p-4">
+                <Label>Event</Label>
+                {eventsLoading ? (
+                   <div className="flex justify-center p-4">
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <div className="flex-grow">
-                      <Popover
-                        open={isPlayerPopoverOpen}
-                        onOpenChange={setIsPlayerPopoverOpen}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={isPlayerPopoverOpen}
-                            className="w-full justify-between"
-                            disabled={isSubmitting}
-                          >
-                            <span className="truncate">
-                              {selectedPlayer ? (
-                                <>
-                                  {selectedPlayer.name}
-                                  {selectedPlayer.instagram && (
-                                    <span className="ml-1 text-muted-foreground">
-                                      ({selectedPlayer.instagram})
-                                    </span>
-                                  )}
-                                </>
-                              ) : (
-                                "Select a player..."
-                              )}
-                            </span>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                          <div className="p-2 border-b">
-                            <Input
-                              placeholder="Search for a player..."
-                              value={playerSearch}
-                              onChange={(e) =>
-                                setPlayerSearch(e.target.value)
-                              }
-                            />
-                          </div>
-                          <ScrollArea className="h-[200px]">
-                            {filteredPlayers.length > 0 ? (
-                              filteredPlayers.map((player) => (
-                                <div
-                                  key={player.id}
-                                  onClick={() => {
-                                    setSelectedPlayer(player);
-                                    setIsPlayerPopoverOpen(false);
-                                    setPlayerSearch("");
-                                  }}
-                                  className="flex cursor-pointer items-center p-2 hover:bg-accent"
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      selectedPlayer?.id === player.id
-                                        ? "opacity-100"
-                                        : "opacity-0"
-                                    )}
-                                  />
-                                  <span className="truncate">
-                                    {player.name}
-                                    {player.instagram && (
+                  <Select onValueChange={(value) => {
+                      setSelectedEventId(value);
+                      setSelectedPlayer(null);
+                      setSelectedGameId("");
+                    }} 
+                    value={selectedEventId}>
+                    <SelectTrigger className="w-full h-11">
+                      <SelectValue placeholder="Select an event to begin..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {events.map((event) => (
+                        <SelectItem key={event.id} value={event.id}>
+                          {event.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              
+              <fieldset disabled={!selectedEventId} className="space-y-6">
+                <div>
+                  <Label>Player</Label>
+                  {playersLoading ? (
+                    <div className="flex justify-center p-4">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <div className="flex-grow">
+                        <Popover
+                          open={isPlayerPopoverOpen}
+                          onOpenChange={setIsPlayerPopoverOpen}
+                        >
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={isPlayerPopoverOpen}
+                              className="w-full justify-between"
+                              disabled={isSubmitting}
+                            >
+                              <span className="truncate">
+                                {selectedPlayer ? (
+                                  <>
+                                    {selectedPlayer.name}
+                                    {selectedPlayer.instagram && (
                                       <span className="ml-1 text-muted-foreground">
-                                        ({player.instagram})
+                                        ({selectedPlayer.instagram})
                                       </span>
                                     )}
-                                  </span>
-                                </div>
-                              ))
-                            ) : (
-                              <p className="p-4 text-center text-sm text-muted-foreground">
-                                No players found.
-                              </p>
-                            )}
-                          </ScrollArea>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-10 w-10 flex-shrink-0"
-                      onClick={() => setIsAddPlayerModalOpen(true)}
-                      disabled={isSubmitting}
-                      aria-label="Add new player"
-                    >
-                      <PlusCircle className="h-5 w-5" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <Label>Game</Label>
-                {gamesLoading ? (
-                  <div className="flex justify-center p-4">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {games.map((game) => (
+                                  </>
+                                ) : (
+                                  "Select a player..."
+                                )}
+                              </span>
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                            <div className="p-2 border-b">
+                              <Input
+                                placeholder="Search for a player..."
+                                value={playerSearch}
+                                onChange={(e) =>
+                                  setPlayerSearch(e.target.value)
+                                }
+                              />
+                            </div>
+                            <ScrollArea className="h-[200px]">
+                              {filteredPlayers.length > 0 ? (
+                                filteredPlayers.map((player) => (
+                                  <div
+                                    key={player.id}
+                                    onClick={() => {
+                                      setSelectedPlayer(player);
+                                      setIsPlayerPopoverOpen(false);
+                                      setPlayerSearch("");
+                                    }}
+                                    className="flex cursor-pointer items-center p-2 hover:bg-accent"
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        selectedPlayer?.id === player.id
+                                          ? "opacity-100"
+                                          : "opacity-0"
+                                      )}
+                                    />
+                                    <span className="truncate">
+                                      {player.name}
+                                      {player.instagram && (
+                                        <span className="ml-1 text-muted-foreground">
+                                          ({player.instagram})
+                                        </span>
+                                      )}
+                                    </span>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="p-4 text-center text-sm text-muted-foreground">
+                                  No players found for this event.
+                                </p>
+                              )}
+                            </ScrollArea>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                       <Button
-                        key={game.id}
                         type="button"
-                        variant={
-                          selectedGameId === game.id ? "default" : "outline"
-                        }
-                        onClick={() => setSelectedGameId(game.id)}
+                        variant="outline"
+                        size="icon"
+                        className="h-10 w-10 flex-shrink-0"
+                        onClick={() => setIsAddPlayerModalOpen(true)}
                         disabled={isSubmitting}
-                        className="w-full"
+                        aria-label="Add new player"
                       >
-                        {game.name}
+                        <PlusCircle className="h-5 w-5" />
                       </Button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="scoreValue">Score</Label>
-                  <Input
-                    id="scoreValue"
-                    name="scoreValue"
-                    type="number"
-                    placeholder="Enter score"
-                    required
-                    disabled={isSubmitting}
-                  />
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <Label htmlFor="level">Level Number</Label>
-                  <Input
-                    id="level"
-                    name="level"
-                    type="number"
-                    placeholder="Enter level"
-                    required
-                    disabled={isSubmitting}
-                  />
-                </div>
-              </div>
 
-              <Button
-                type="submit"
-                className="w-full text-lg py-6"
-                disabled={isSubmitting || !selectedGameId || !selectedPlayer}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  "Submit Score"
-                )}
-              </Button>
+                <div>
+                  <Label>Game</Label>
+                  {gamesLoading ? (
+                    <div className="flex justify-center p-4">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {games.map((game) => (
+                        <Button
+                          key={game.id}
+                          type="button"
+                          variant={
+                            selectedGameId === game.id ? "default" : "outline"
+                          }
+                          onClick={() => setSelectedGameId(game.id)}
+                          disabled={isSubmitting}
+                          className="w-full"
+                        >
+                          {game.name}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="scoreValue">Score</Label>
+                    <Input
+                      id="scoreValue"
+                      name="scoreValue"
+                      type="number"
+                      placeholder="Enter score"
+                      required
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="level">Level Number</Label>
+                    <Input
+                      id="level"
+                      name="level"
+                      type="number"
+                      placeholder="Enter level"
+                      required
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full text-lg py-6"
+                  disabled={isSubmitting || !selectedGameId || !selectedPlayer}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    "Submit Score"
+                  )}
+                </Button>
+              </fieldset>
             </form>
           </CardContent>
         </Card>
@@ -550,6 +604,7 @@ function DashboardPage() {
         open={isAddPlayerModalOpen}
         onOpenChange={setIsAddPlayerModalOpen}
         initialPlayerName={playerSearch}
+        eventId={selectedEventId}
         onPlayerAdded={(playerName) => {
           setNewlyAddedPlayerName(playerName);
           setIsAddPlayerModalOpen(false);
@@ -590,3 +645,5 @@ function DashboardPage() {
 }
 
 export default DashboardPage;
+
+    

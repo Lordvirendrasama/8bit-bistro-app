@@ -31,6 +31,7 @@ export default function Footer() {
     { href: '/admin/dashboard', label: 'Main' },
     { href: '/admin/users', label: 'Users' },
     { href: '/admin/games', label: 'Games' },
+    { href: '/admin/events', label: 'Events' },
     { href: '/admin/settings', label: 'Settings' },
   ];
 
@@ -38,7 +39,7 @@ export default function Footer() {
     return (
     <footer className="w-full border-t border-border/40 bg-background/95 py-6 mt-auto">
       <div className="container flex flex-col items-center justify-center gap-4">
-        <nav className="flex items-center gap-4">
+        <nav className="flex flex-wrap items-center justify-center gap-4">
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -79,3 +80,5 @@ export default function Footer() {
     </footer>
   );
 }
+
+    

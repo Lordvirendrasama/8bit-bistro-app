@@ -7,11 +7,12 @@ import {
   query,
   onSnapshot,
   orderBy,
+  where,
 } from "firebase/firestore";
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useFirestore } from "@/firebase";
-import type { Score, Game } from "@/types";
+import type { Score, Game, Event } from "@/types";
 import { Loader2, Crown, ChevronDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -22,6 +23,14 @@ import {
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useEvents } from "@/lib/hooks/use-events";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 function LeaderboardPage() {
   const [allScores, setAllScores] = useState<Score[]>([]);
@@ -29,24 +38,43 @@ function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const firestore = useFirestore();
 
+  const { events, loading: loadingEvents } = useEvents();
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+
   useEffect(() => {
-    if (!firestore) {
+    if (!firestore) return;
+
+    // Fetch all games once
+    const gamesQuery = query(collection(firestore, "games"));
+    const unsubscribeGames = onSnapshot(
+      gamesQuery,
+      (snapshot) => {
+        const gamesData = snapshot.docs.map(
+          (doc) => ({ id: doc.id, ...doc.data() } as Game)
+        );
+        setGames(gamesData);
+      },
+      (error) => {
+        console.error("Error fetching games: ", error);
+      }
+    );
+
+    return () => unsubscribeGames();
+  }, [firestore]);
+
+
+  useEffect(() => {
+    if (!firestore || !selectedEventId) {
+      setAllScores([]);
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    let loadingCount = 2; // We are waiting for 2 fetches: scores and games
-    const doneLoading = () => {
-      loadingCount--;
-      if (loadingCount === 0) {
-        setLoading(false);
-      }
-    };
 
-    // 1. Fetch all scores
     const scoresQuery = query(
       collection(firestore, "scoreSubmissions"),
+      where("eventId", "==", selectedEventId),
       orderBy("scoreValue", "desc")
     );
     const unsubscribeScores = onSnapshot(
@@ -56,51 +84,28 @@ function LeaderboardPage() {
           (doc) => ({ id: doc.id, ...doc.data() } as Score)
         );
         setAllScores(scoresData);
-        doneLoading();
+        setLoading(false);
       },
       (error) => {
         console.error("Error fetching scores: ", error);
-        doneLoading();
+        setLoading(false);
       }
     );
-
-    // 2. Fetch all games
-    const gamesQuery = query(collection(firestore, "games"));
-    const unsubscribeGames = onSnapshot(
-      gamesQuery,
-      (snapshot) => {
-        const gamesData = snapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() } as Game)
-        );
-        setGames(gamesData);
-        doneLoading();
-      },
-      (error) => {
-        console.error("Error fetching games: ", error);
-        doneLoading();
-      }
-    );
-
 
     return () => {
       unsubscribeScores();
-      unsubscribeGames();
     };
-  }, [firestore]);
+  }, [firestore, selectedEventId]);
 
   const rankedGames = useMemo(() => {
-    // Create a map of game IDs to their current names for quick lookup.
     const gameNameMap = games.reduce((acc, game) => {
       acc[game.id] = game.name;
       return acc;
     }, {} as Record<string, string>);
 
-    // Group all scores by their game ID
     const scoresByGame = allScores.reduce((acc, score) => {
       const gameId = score.gameId;
       if (!acc[gameId]) {
-        // Use the current game name from the map, or fall back to the score's stored name
-        // if the game has been deleted.
         const currentGameName = gameNameMap[gameId] || score.gameName;
         acc[gameId] = {
           gameName: currentGameName,
@@ -111,11 +116,9 @@ function LeaderboardPage() {
       return acc;
     }, {} as Record<string, { gameName: string; scores: Score[] }>);
 
-    // Process each game to rank players
     return Object.values(scoresByGame).map((gameData) => {
-      if (!gameData.gameName) return null; // Don't show games without a name
+      if (!gameData.gameName) return null;
       
-      // Group scores within a game by player ID
       const scoresByPlayer = gameData.scores.reduce((acc, score) => {
         if (!acc[score.playerId]) {
           acc[score.playerId] = [];
@@ -124,10 +127,8 @@ function LeaderboardPage() {
         return acc;
       }, {} as Record<string, Score[]>);
 
-      // Create a ranked list of players for the game
       const rankedPlayers = Object.values(scoresByPlayer)
         .map((playerScores) => {
-          // Sort a player's scores to find their best one
           const sortedPlayerScores = [...playerScores].sort(
             (a, b) => b.scoreValue - a.scoreValue
           );
@@ -139,7 +140,6 @@ function LeaderboardPage() {
             allScores: sortedPlayerScores,
           };
         })
-        // Sort all players by their best score to determine rank
         .sort((a, b) => b.bestScore.scoreValue - a.bestScore.scoreValue);
 
       return {
@@ -152,23 +152,51 @@ function LeaderboardPage() {
   return (
     <div className="py-10">
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <h1 className="font-headline text-4xl sm:text-6xl text-center font-black text-primary uppercase tracking-wider mb-8">
-          8 Bit Leaderboard
+        <h1 className="font-headline text-4xl sm:text-6xl text-center font-black text-primary uppercase tracking-wider mb-4">
+          Leaderboard
         </h1>
 
-        {loading && (
+        <div className="max-w-md mx-auto mb-8">
+          <Select onValueChange={setSelectedEventId} value={selectedEventId ?? undefined}>
+            <SelectTrigger className="w-full h-12 text-lg">
+              <SelectValue placeholder="Select an event..." />
+            </SelectTrigger>
+            <SelectContent>
+              {loadingEvents ? (
+                <div className="p-4 flex justify-center">
+                  <Loader2 className="h-5 w-5 animate-spin"/>
+                </div>
+              ) : (
+                events.map((event) => (
+                  <SelectItem key={event.id} value={event.id}>
+                    {event.name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+
+        {(loading || loadingEvents) && (
           <div className="flex justify-center items-center p-10">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
           </div>
         )}
 
-        {!loading && rankedGames.length === 0 && (
+        {!loading && !selectedEventId && (
+            <p className="text-center text-foreground text-xl mt-8">
+                Please select an event to view the leaderboard.
+            </p>
+        )}
+
+        {!loading && selectedEventId && rankedGames.length === 0 && (
           <p className="text-center text-foreground text-xl mt-8">
-            No scores have been submitted yet.
+            No scores have been submitted for this event yet.
           </p>
         )}
 
-        {!loading && rankedGames.length > 0 && (
+        {!loading && selectedEventId && rankedGames.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {rankedGames.map((gameData, gameIndex) => {
               if (!gameData || gameData.rankedPlayers.length === 0) return null;
@@ -189,7 +217,6 @@ function LeaderboardPage() {
                         <Collapsible key={playerEntry.playerId}>
                           <Card>
                             <div className="flex items-center gap-2 p-3 sm:p-4">
-                              {/* Ranking, Avatar, and Name */}
                               <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
                                 <div className="w-8 flex-shrink-0 text-center text-xl font-bold">
                                   {rank}
@@ -208,7 +235,6 @@ function LeaderboardPage() {
                                   )}
                                 </div>
                               </div>
-                              {/* Best Score */}
                               <div className="text-right">
                                 <div className={cn(
                                     "text-lg font-bold font-mono sm:text-xl md:text-2xl",
@@ -220,7 +246,6 @@ function LeaderboardPage() {
                                   Level {playerEntry.bestScore.level}
                                 </div>
                               </div>
-                              {/* Dropdown Trigger */}
                               {hasMultipleScores && (
                                 <CollapsibleTrigger asChild>
                                   <Button
@@ -234,7 +259,6 @@ function LeaderboardPage() {
                               )}
                             </div>
 
-                            {/* Collapsible Content for Other Scores */}
                             {hasMultipleScores && (
                               <CollapsibleContent>
                                 <div className="space-y-2 border-t px-4 pb-4 pt-2">
@@ -278,3 +302,5 @@ export default function GuardedLeaderboardPage() {
     </AuthGuard>
   );
 }
+
+    

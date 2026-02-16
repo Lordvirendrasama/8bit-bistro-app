@@ -12,10 +12,11 @@ export default function AdminHeader() {
     { href: '/admin/dashboard', label: 'Main' },
     { href: '/admin/users', label: 'Users' },
     { href: '/admin/games', label: 'Games' },
+    { href: '/admin/events', label: 'Events' },
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-sm">
       <div className="container flex h-40 flex-col items-center justify-center gap-4">
         <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center">
             <div />
@@ -24,7 +25,7 @@ export default function AdminHeader() {
             </Link>
             <div className="flex items-center justify-self-end gap-2">
                 <Button variant="outline" size="sm" asChild>
-                <Link href="/dashboard">View App</Link>
+                <Link href="/">View App</Link>
                 </Button>
             </div>
         </div>
@@ -48,3 +49,5 @@ export default function AdminHeader() {
     </header>
   );
 }
+
+    
