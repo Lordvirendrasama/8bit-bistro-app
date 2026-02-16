@@ -32,6 +32,7 @@ export default function Footer() {
     { href: '/admin/users', label: 'Users' },
     { href: '/admin/games', label: 'Games' },
     { href: '/admin/events', label: 'Events' },
+    { href: '/admin/settings', label: 'Settings' },
   ];
 
   if (pathname.startsWith('/admin')) {
@@ -55,9 +56,6 @@ export default function Footer() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-            <Button variant="default" size="sm" asChild>
-              <Link href="/admin/settings">Settings</Link>
-            </Button>
             <Button variant="outline" size="sm" asChild>
             <Link href="/">View App</Link>
             </Button>
