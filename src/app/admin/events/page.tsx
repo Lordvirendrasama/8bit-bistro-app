@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -84,6 +85,8 @@ export default function AdminEventsPage() {
 
   useEffect(() => {
     if (!firestore) return;
+
+    setLoading(true);
     const q = query(collection(firestore, "events"), orderBy("name"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const eventsData: Event[] = [];
@@ -91,29 +94,6 @@ export default function AdminEventsPage() {
         eventsData.push({ id: doc.id, ...doc.data() } as Event);
       });
       setEvents(eventsData);
-      
-      if (loading && snapshot.empty && !snapshot.metadata.fromCache) {
-          const eventData = {
-              name: "Floaters and socks",
-              createdAt: serverTimestamp(),
-          };
-          addDoc(collection(firestore, "events"), eventData)
-            .then(() => {
-              toast({
-                  title: "Event Created",
-                  description: 'Added initial "Floaters and socks" event.'
-              })
-            })
-            .catch(() => {
-                const permissionError = new FirestorePermissionError({
-                    path: 'events',
-                    operation: 'create',
-                    requestResourceData: eventData
-                });
-                errorEmitter.emit('permission-error', permissionError);
-            });
-      }
-
       setLoading(false);
     }, (err) => {
         const contextualError = new FirestorePermissionError({
@@ -125,7 +105,7 @@ export default function AdminEventsPage() {
     });
 
     return () => unsubscribe();
-  }, [firestore, toast]);
+  }, [firestore]);
 
   const handleAddEvent = (e: React.FormEvent) => {
     e.preventDefault();
@@ -262,7 +242,7 @@ export default function AdminEventsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(events || []).map((event) => (
+                {events.map((event) => (
                   <TableRow key={event.id}>
                     <TableCell className="font-medium">{event.name}</TableCell>
                     <TableCell className="text-right">
@@ -289,7 +269,7 @@ export default function AdminEventsPage() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {(events || []).length === 0 && (
+                {events.length === 0 && (
                   <TableRow>
                     <TableCell
                       colSpan={2}

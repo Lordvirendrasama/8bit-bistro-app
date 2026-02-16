@@ -1,3 +1,4 @@
+
 /**
  * Core Philosophy:
  * This ruleset enforces a security model with distinct roles for players and administrators.
@@ -10,7 +11,7 @@
  * The data is organized into several top-level collections:
  * - /players/{playerId}: Stores private user profiles, keyed by the user's auth UID.
  * - /games/{gameId}: A publicly readable list of games available at the event.
- * - /events/{eventId}: A publicly readable list of events.
+ * - /events/{eventId}: A publicly readable and writable list of events.
  * - /scoreSubmissions/{scoreSubmissionId}: A mixed-access collection where approved scores
  *   are public, but pending/rejected scores are private to the submitter and admins.
  * - /admins/{adminId}: An access-control list where the existence of a document grants
@@ -19,7 +20,7 @@
  * Key Security Decisions:
  * - Admin Access: For development, all authenticated users are considered admins.
  * - Public Data: The `/games` collection is publicly readable. Approved scores
- *   are also publicly readable.
+ *   are also publicly readable. The `/events` collection is fully public.
  * - Score Submissions: Writing scores is limited to authenticated users.
  */
 rules_version = '2';
@@ -64,7 +65,7 @@ service cloud.firestore {
 
     /**
      * @description
-     *   Manages the list of events. Publicly accessible.
+     *   Manages the list of events. Completely public for this app.
      * @path /events/{eventId}
      */
     match /events/{eventId} {
@@ -78,12 +79,13 @@ service cloud.firestore {
      */
     match /scoreSubmissions/{scoreSubmissionId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
 
     /**
       * @description
-      *   A role-based access collection.
+      *   A role-based access collection for administrators.
       * @path /admins/{adminId}
       */
     match /admins/{adminId} {
