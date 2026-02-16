@@ -5,13 +5,12 @@ import { useState, useEffect, useMemo } from "react";
 import {
   collection,
   query,
-  onSnapshot,
   orderBy,
   where,
 } from "firebase/firestore";
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
-import { useFirestore } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import type { Score, Game, Event } from "@/types";
 import { Loader2, Crown, ChevronDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -33,77 +32,44 @@ import {
 } from "@/components/ui/select";
 
 function LeaderboardPage() {
-  const [allScores, setAllScores] = useState<Score[]>([]);
-  const [games, setGames] = useState<Game[]>([]);
-  const [loading, setLoading] = useState(true);
   const firestore = useFirestore();
-
   const { events, loading: loadingEvents } = useEvents();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!firestore) return;
-
-    // Fetch all games once
-    const gamesQuery = query(collection(firestore, "games"));
-    const unsubscribeGames = onSnapshot(
-      gamesQuery,
-      (snapshot) => {
-        const gamesData = snapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() } as Game)
-        );
-        setGames(gamesData);
-      },
-      (error) => {
-        console.error("Error fetching games: ", error);
-      }
-    );
-
-    return () => unsubscribeGames();
+  const gamesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "games"));
   }, [firestore]);
+  const { data: games, isLoading: loadingGames } = useCollection<Game>(gamesQuery);
 
-
-  useEffect(() => {
-    if (!firestore || !selectedEventId) {
-      setAllScores([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-
-    const scoresQuery = query(
+  const scoresQuery = useMemoFirebase(() => {
+    if (!firestore || !selectedEventId) return null;
+    return query(
       collection(firestore, "scoreSubmissions"),
       where("eventId", "==", selectedEventId),
       orderBy("scoreValue", "desc")
     );
-    const unsubscribeScores = onSnapshot(
-      scoresQuery,
-      (snapshot) => {
-        const scoresData = snapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() } as Score)
-        );
-        setAllScores(scoresData);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("Error fetching scores: ", error);
-        setLoading(false);
-      }
-    );
-
-    return () => {
-      unsubscribeScores();
-    };
   }, [firestore, selectedEventId]);
+  const { data: allScores, isLoading: loadingScores } = useCollection<Score>(scoresQuery);
+
+  useEffect(() => {
+    if (!loadingEvents && events.length > 0 && !selectedEventId) {
+      const floatersEvent = events.find(e => e.name === "Floaters and socks");
+      if (floatersEvent) {
+        setSelectedEventId(floatersEvent.id);
+      } else if (events.length > 0) {
+        setSelectedEventId(events[0].id);
+      }
+    }
+  }, [events, loadingEvents, selectedEventId]);
 
   const rankedGames = useMemo(() => {
-    const gameNameMap = games.reduce((acc, game) => {
+    const gameNameMap = (games || []).reduce((acc, game) => {
       acc[game.id] = game.name;
       return acc;
     }, {} as Record<string, string>);
 
-    const scoresByGame = allScores.reduce((acc, score) => {
+    const scoresByGame = (allScores || []).reduce((acc, score) => {
       const gameId = score.gameId;
       if (!acc[gameId]) {
         const currentGameName = gameNameMap[gameId] || score.gameName;
@@ -148,6 +114,8 @@ function LeaderboardPage() {
       };
     }).filter((game): game is NonNullable<typeof game> => game !== null);
   }, [allScores, games]);
+  
+  const isLoading = loadingEvents || loadingGames || loadingScores;
 
   return (
     <div className="py-10">
@@ -178,25 +146,25 @@ function LeaderboardPage() {
         </div>
 
 
-        {(loading || loadingEvents) && (
+        {isLoading && (
           <div className="flex justify-center items-center p-10">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
           </div>
         )}
 
-        {!loading && !selectedEventId && (
+        {!isLoading && !selectedEventId && (
             <p className="text-center text-foreground text-xl mt-8">
                 Please select an event to view the leaderboard.
             </p>
         )}
 
-        {!loading && selectedEventId && rankedGames.length === 0 && (
+        {!isLoading && selectedEventId && rankedGames.length === 0 && (
           <p className="text-center text-foreground text-xl mt-8">
             No scores have been submitted for this event yet.
           </p>
         )}
 
-        {!loading && selectedEventId && rankedGames.length > 0 && (
+        {!isLoading && selectedEventId && rankedGames.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {rankedGames.map((gameData, gameIndex) => {
               if (!gameData || gameData.rankedPlayers.length === 0) return null;
@@ -302,5 +270,3 @@ export default function GuardedLeaderboardPage() {
     </AuthGuard>
   );
 }
-
-    
