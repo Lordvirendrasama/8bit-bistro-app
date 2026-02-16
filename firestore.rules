@@ -18,9 +18,9 @@
  *
  * Key Security Decisions:
  * - Admin Access: For development, all authenticated users are considered admins.
- * - Public Data: The `/games` and `/events` collections are publicly readable. Approved scores
+ * - Public Data: The `/games` collection is publicly readable. Approved scores
  *   are also publicly readable.
- * - Score Submissions: Writing scores is limited to authenticated (admin) users.
+ * - Score Submissions: Writing scores is limited to authenticated users.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -47,7 +47,7 @@ service cloud.firestore {
      */
     match /players/{playerId} {
       allow get: if isOwner(playerId) || isAdmin();
-      allow list: if isSignedIn();
+      allow list: if isAdmin();
       allow create: if isSignedIn();
       allow update, delete: if isAdmin();
     }
@@ -58,17 +58,17 @@ service cloud.firestore {
      * @path /games/{gameId}
      */
     match /games/{gameId} {
-      allow get, list: if true;
+      allow read: if true;
       allow write: if isAdmin();
     }
 
     /**
      * @description
-     *   Manages the list of events. Publicly readable and writable for development.
+     *   Manages the list of events. Admins can read and write.
      * @path /events/{eventId}
      */
     match /events/{eventId} {
-      allow read, write: if true;
+      allow read, write: if isAdmin();
     }
 
     /**
