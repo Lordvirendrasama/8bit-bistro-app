@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
+import { collection, query, onSnapshot, orderBy, FirestoreError } from 'firebase/firestore';
+import { useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
 import type { Event } from '@/types';
 
 export function useEvents() {
@@ -22,6 +22,14 @@ export function useEvents() {
       });
       setEvents(eventsData);
       setLoading(false);
+    },
+    (error: FirestoreError) => {
+      const contextualError = new FirestorePermissionError({
+          path: 'events',
+          operation: 'list',
+      });
+      errorEmitter.emit('permission-error', contextualError);
+      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -29,5 +37,3 @@ export function useEvents() {
 
   return { events, loading };
 }
-
-    
