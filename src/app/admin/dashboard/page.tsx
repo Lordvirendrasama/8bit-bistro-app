@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase, FirestorePermissionError, errorEmitter } from "@/firebase";
 import type { Score } from "@/types";
 
 import {
@@ -186,9 +186,9 @@ export default function AdminMainPage() {
     setEditModalOpen(true);
   };
 
-  const handleEditSubmit = async () => {
+  const handleEditSubmit = () => {
     if (!selectedScore || isSubmitting || !firestore) return;
-    setIsSubmitting(true);
+
     const scoreValue = parseInt(newScoreValue, 10);
     if (isNaN(scoreValue)) {
       toast({
@@ -196,24 +196,29 @@ export default function AdminMainPage() {
         description: "Please enter a valid number.",
         variant: "destructive",
       });
-      setIsSubmitting(false);
       return;
     }
-    try {
-      await updateDoc(doc(firestore, "scoreSubmissions", selectedScore.id), {
-        scoreValue,
+
+    setIsSubmitting(true);
+    const updatedData = { scoreValue };
+    const scoreDocRef = doc(firestore, "scoreSubmissions", selectedScore.id);
+    
+    updateDoc(scoreDocRef, updatedData)
+      .then(() => {
+        toast({ title: "Success", description: "Score value updated." });
+      })
+      .catch(() => {
+        const permissionError = new FirestorePermissionError({
+            path: scoreDocRef.path,
+            operation: 'update',
+            requestResourceData: updatedData
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+        setEditModalOpen(false);
       });
-      toast({ title: "Success", description: "Score value updated." });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      toast({
-        title: "Error",
-        description: `Failed to update score: ${message}`,
-        variant: "destructive",
-      });
-    }
-    setIsSubmitting(false);
-    setEditModalOpen(false);
   };
 
   const openDeleteModal = (score: Score) => {
@@ -221,23 +226,28 @@ export default function AdminMainPage() {
     setDeleteModalOpen(true);
   };
 
-  const handleDeleteSubmit = async () => {
+  const handleDeleteSubmit = () => {
     if (!selectedScore || isSubmitting || !firestore) return;
     setIsSubmitting(true);
-    try {
-      await deleteDoc(doc(firestore, "scoreSubmissions", selectedScore.id));
-      toast({ title: "Success", description: "Score deleted." });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      toast({
-        title: "Error",
-        description: `Failed to delete score: ${message}`,
-        variant: "destructive",
+    
+    const scoreDocRef = doc(firestore, "scoreSubmissions", selectedScore.id);
+    deleteDoc(scoreDocRef)
+      .then(() => {
+        toast({ title: "Success", description: "Score deleted." });
+      })
+      .catch(() => {
+        const permissionError = new FirestorePermissionError({
+            path: scoreDocRef.path,
+            operation: 'delete'
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+        setDeleteModalOpen(false);
       });
-    }
-    setIsSubmitting(false);
-    setDeleteModalOpen(false);
   };
+
 
   if (loadingScores || gamesLoading) {
     return (

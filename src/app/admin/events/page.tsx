@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -20,7 +21,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { useFirestore } from "@/firebase";
+import { useFirestore, FirestorePermissionError, errorEmitter } from "@/firebase";
 import type { Event } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -92,51 +93,72 @@ export default function AdminEventsPage() {
       });
       setEvents(eventsData);
       
-      // Seed initial event if none exist after first load and it's not a cached read
       if (loading && snapshot.empty && !snapshot.metadata.fromCache) {
-          addDoc(collection(firestore, "events"), {
+          const eventData = {
               name: "Floaters and socks",
               createdAt: serverTimestamp(),
-          }).then(() => {
+          };
+          addDoc(collection(firestore, "events"), eventData)
+            .then(() => {
               toast({
                   title: "Event Created",
                   description: 'Added initial "Floaters and socks" event.'
               })
-          });
+            })
+            .catch(() => {
+                const permissionError = new FirestorePermissionError({
+                    path: 'events',
+                    operation: 'create',
+                    requestResourceData: eventData
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            });
       }
 
       setLoading(false);
+    }, (err) => {
+        const contextualError = new FirestorePermissionError({
+            path: 'events',
+            operation: 'list',
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        setLoading(false);
     });
 
     return () => unsubscribe();
   }, [firestore, toast, loading]);
 
-  const handleAddEvent = async (e: React.FormEvent) => {
+  const handleAddEvent = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEventName.trim() || isSubmitting || !firestore) return;
 
     setIsSubmitting(true);
 
-    try {
-      await addDoc(collection(firestore, "events"), {
+    const eventData = {
         name: newEventName.trim(),
         createdAt: serverTimestamp(),
-      });
-      toast({
-        title: "Success",
-        description: `Event '${newEventName.trim()}' added.`,
-      });
-      setNewEventName("");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      toast({
-        title: "Error",
-        description: `Failed to add event: ${message}`,
-        variant: "destructive",
-      });
-    }
+    };
+    const eventsCollection = collection(firestore, "events");
 
-    setIsSubmitting(false);
+    addDoc(eventsCollection, eventData)
+      .then(() => {
+        toast({
+          title: "Success",
+          description: `Event '${newEventName.trim()}' added.`,
+        });
+        setNewEventName("");
+      })
+      .catch(() => {
+        const permissionError = new FirestorePermissionError({
+            path: eventsCollection.path,
+            operation: 'create',
+            requestResourceData: eventData
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+      });
   };
 
   const openDeleteAlert = (event: Event) => {
@@ -144,20 +166,24 @@ export default function AdminEventsPage() {
     setDeleteAlertOpen(true);
   };
 
-  const handleDeleteEvent = async () => {
+  const handleDeleteEvent = () => {
     if (!firestore || !eventToDelete) return;
-    try {
-      await deleteDoc(doc(firestore, "events", eventToDelete.id));
-      toast({ title: "Success", description: "Event deleted." });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      toast({
-        title: "Error",
-        description: `Failed to delete event: ${message}`,
-        variant: "destructive",
-      });
-    }
-    setDeleteAlertOpen(false);
+
+    const eventDocRef = doc(firestore, "events", eventToDelete.id);
+    deleteDoc(eventDocRef)
+        .then(() => {
+            toast({ title: "Success", description: "Event deleted." });
+        })
+        .catch(() => {
+            const permissionError = new FirestorePermissionError({
+                path: eventDocRef.path,
+                operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => {
+            setDeleteAlertOpen(false);
+        });
   };
 
   const openEditModal = (event: Event) => {
@@ -166,26 +192,31 @@ export default function AdminEventsPage() {
     setEditModalOpen(true);
   };
 
-  const handleEditEvent = async () => {
+  const handleEditEvent = () => {
     if (!firestore || !selectedEvent || !editedEventName.trim() || isEditing)
       return;
 
     setIsEditing(true);
-    try {
-      await updateDoc(doc(firestore, "events", selectedEvent.id), {
-        name: editedEventName.trim(),
-      });
-      toast({ title: "Success", description: "Event name updated." });
-      setEditModalOpen(false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      toast({
-        title: "Error",
-        description: `Failed to update event: ${message}`,
-        variant: "destructive",
-      });
-    }
-    setIsEditing(false);
+
+    const eventDocRef = doc(firestore, "events", selectedEvent.id);
+    const updatedData = { name: editedEventName.trim() };
+
+    updateDoc(eventDocRef, updatedData)
+        .then(() => {
+            toast({ title: "Success", description: "Event name updated." });
+            setEditModalOpen(false);
+        })
+        .catch(() => {
+            const permissionError = new FirestorePermissionError({
+                path: eventDocRef.path,
+                operation: 'update',
+                requestResourceData: updatedData
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => {
+            setIsEditing(false);
+        });
   };
 
   return (
@@ -330,5 +361,3 @@ export default function AdminEventsPage() {
     </div>
   );
 }
-
-    

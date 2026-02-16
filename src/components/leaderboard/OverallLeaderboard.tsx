@@ -9,7 +9,7 @@ import {
   limit,
   onSnapshot,
 } from "firebase/firestore";
-import { useFirestore } from "@/firebase";
+import { useFirestore, FirestorePermissionError, errorEmitter } from "@/firebase";
 import type { Score } from "@/types";
 import { Loader2, Crown } from "lucide-react";
 import {
@@ -46,8 +46,15 @@ export function OverallLeaderboard() {
         setScores(scoresData);
         setLoading(false);
       },
-      () => setLoading(false)
-    ); // also stop loading on error
+      (error) => {
+        const contextualError = new FirestorePermissionError({
+            path: 'scoreSubmissions',
+            operation: 'list'
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        setLoading(false);
+      }
+    );
 
     return () => unsubscribe();
   }, [firestore]);

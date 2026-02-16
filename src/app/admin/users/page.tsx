@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -5,7 +6,7 @@ import { collection, query, orderBy, doc, updateDoc, deleteDoc } from "firebase/
 import { formatDistanceToNow } from "date-fns";
 import { Loader2, ChevronDown, ChevronUp, Instagram, Users, MoreVertical, Edit, Trash2 } from "lucide-react";
 
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase, FirestorePermissionError, errorEmitter } from "@/firebase";
 import type { Player } from "@/types";
 import {
   Card,
@@ -152,7 +153,7 @@ export default function AdminUsersPage() {
     setEditModalOpen(true);
   };
 
-  const handleEditSubmit = async () => {
+  const handleEditSubmit = () => {
     if (!playerToEdit || isSubmitting || !firestore) return;
     
     const groupSize = parseInt(editedGroupSize, 10);
@@ -166,24 +167,28 @@ export default function AdminUsersPage() {
     }
     
     setIsSubmitting(true);
-    try {
-      await updateDoc(doc(firestore, "players", playerToEdit.id), {
+    const updatedData = {
         name: editedName.trim(),
         instagram: editedInstagram.trim(),
         groupSize,
+    };
+    const playerDocRef = doc(firestore, "players", playerToEdit.id);
+    updateDoc(playerDocRef, updatedData)
+      .then(() => {
+        toast({ title: "Success", description: "Player details updated." });
+        setEditModalOpen(false);
+      })
+      .catch(() => {
+        const permissionError = new FirestorePermissionError({
+            path: playerDocRef.path,
+            operation: 'update',
+            requestResourceData: updatedData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setIsSubmitting(false);
       });
-      toast({ title: "Success", description: "Player details updated." });
-      setEditModalOpen(false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      toast({
-        title: "Error",
-        description: `Failed to update player: ${message}`,
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const openDeleteAlert = (player: Player) => {
@@ -191,23 +196,26 @@ export default function AdminUsersPage() {
     setDeleteAlertOpen(true);
   };
 
-  const handleDeleteSubmit = async () => {
+  const handleDeleteSubmit = () => {
     if (!playerToDelete || !firestore) return;
     setIsSubmitting(true);
-    try {
-      await deleteDoc(doc(firestore, "players", playerToDelete.id));
-      toast({ title: "Success", description: "Player deleted." });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      toast({
-        title: "Error",
-        description: `Failed to delete player: ${message}`,
-        variant: "destructive",
+    
+    const playerDocRef = doc(firestore, "players", playerToDelete.id);
+    deleteDoc(playerDocRef)
+      .then(() => {
+        toast({ title: "Success", description: "Player deleted." });
+      })
+      .catch(() => {
+        const permissionError = new FirestorePermissionError({
+            path: playerDocRef.path,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+        setDeleteAlertOpen(false);
       });
-    } finally {
-      setIsSubmitting(false);
-      setDeleteAlertOpen(false);
-    }
   };
 
   if (loadingPlayers) {

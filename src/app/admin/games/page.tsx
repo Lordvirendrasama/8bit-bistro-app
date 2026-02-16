@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -19,7 +20,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { useFirestore } from "@/firebase";
+import { useFirestore, FirestorePermissionError, errorEmitter } from "@/firebase";
 import type { Game } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -93,37 +94,48 @@ export default function AdminGamesPage() {
       });
       setGames(gamesData);
       setLoading(false);
+    }, (err) => {
+        const contextualError = new FirestorePermissionError({
+            path: 'games',
+            operation: 'list',
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        setLoading(false);
     });
 
     return () => unsubscribe();
   }, [firestore]);
 
-  const handleAddGame = async (e: React.FormEvent) => {
+  const handleAddGame = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newGameName.trim() || isSubmitting || !firestore) return;
 
     setIsSubmitting(true);
 
-    try {
-      await addDoc(collection(firestore, "games"), {
-        name: newGameName.trim(),
-        isActive: true,
+    const gameData = {
+      name: newGameName.trim(),
+      isActive: true,
+    };
+    const gamesCollection = collection(firestore, "games");
+    addDoc(gamesCollection, gameData)
+      .then(() => {
+        toast({
+          title: "Success",
+          description: `Game '${newGameName.trim()}' added.`,
+        });
+        setNewGameName("");
+      })
+      .catch(() => {
+        const permissionError = new FirestorePermissionError({
+            path: gamesCollection.path,
+            operation: 'create',
+            requestResourceData: gameData
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setIsSubmitting(false);
       });
-      toast({
-        title: "Success",
-        description: `Game '${newGameName.trim()}' added.`,
-      });
-      setNewGameName("");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      toast({
-        title: "Error",
-        description: `Failed to add game: ${message}`,
-        variant: "destructive",
-      });
-    }
-
-    setIsSubmitting(false);
   };
 
   const openDeleteAlert = (game: Game) => {
@@ -131,43 +143,46 @@ export default function AdminGamesPage() {
     setDeleteAlertOpen(true);
   };
 
-  const handleDeleteGame = async () => {
+  const handleDeleteGame = () => {
     if (!firestore || !gameToDelete) return;
-    try {
-      await deleteDoc(doc(firestore, "games", gameToDelete.id));
-      toast({ title: "Success", description: "Game deleted." });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      toast({
-        title: "Error",
-        description: `Failed to delete game: ${message}`,
-        variant: "destructive",
+    
+    const gameDocRef = doc(firestore, "games", gameToDelete.id);
+    deleteDoc(gameDocRef)
+      .then(() => {
+        toast({ title: "Success", description: "Game deleted." });
+      })
+      .catch(() => {
+        const permissionError = new FirestorePermissionError({
+            path: gameDocRef.path,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setDeleteAlertOpen(false);
       });
-    }
-    setDeleteAlertOpen(false);
   };
 
-  const handleStatusToggle = async (
-    gameId: string,
-    currentStatus: boolean
-  ) => {
+  const handleStatusToggle = (gameId: string, currentStatus: boolean) => {
     if (!firestore) return;
-    try {
-      await updateDoc(doc(firestore, "games", gameId), {
-        isActive: !currentStatus,
+    
+    const gameDocRef = doc(firestore, "games", gameId);
+    const updatedData = { isActive: !currentStatus };
+    updateDoc(gameDocRef, updatedData)
+      .then(() => {
+        toast({
+          title: "Success",
+          description: "Game status updated.",
+        });
+      })
+      .catch(() => {
+        const permissionError = new FirestorePermissionError({
+            path: gameDocRef.path,
+            operation: 'update',
+            requestResourceData: updatedData
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
-      toast({
-        title: "Success",
-        description: "Game status updated.",
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      toast({
-        title: "Error",
-        description: `Failed to update status: ${message}`,
-        variant: "destructive",
-      });
-    }
   };
 
   const openEditModal = (game: Game) => {
@@ -176,26 +191,29 @@ export default function AdminGamesPage() {
     setEditModalOpen(true);
   };
 
-  const handleEditGame = async () => {
-    if (!firestore || !selectedGame || !editedGameName.trim() || isEditing)
-      return;
+  const handleEditGame = () => {
+    if (!firestore || !selectedGame || !editedGameName.trim() || isEditing) return;
 
     setIsEditing(true);
-    try {
-      await updateDoc(doc(firestore, "games", selectedGame.id), {
-        name: editedGameName.trim(),
+
+    const gameDocRef = doc(firestore, "games", selectedGame.id);
+    const updatedData = { name: editedGameName.trim() };
+    updateDoc(gameDocRef, updatedData)
+      .then(() => {
+        toast({ title: "Success", description: "Game name updated." });
+        setEditModalOpen(false);
+      })
+      .catch(() => {
+        const permissionError = new FirestorePermissionError({
+            path: gameDocRef.path,
+            operation: 'update',
+            requestResourceData: updatedData
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setIsEditing(false);
       });
-      toast({ title: "Success", description: "Game name updated." });
-      setEditModalOpen(false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      toast({
-        title: "Error",
-        description: `Failed to update game: ${message}`,
-        variant: "destructive",
-      });
-    }
-    setIsEditing(false);
   };
 
   return (
