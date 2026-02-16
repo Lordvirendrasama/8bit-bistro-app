@@ -2,13 +2,8 @@
 
 import { usePathname } from "next/navigation";
 import { Toaster } from "@/components/ui/toaster";
-import dynamic from "next/dynamic";
 import Header from "@/components/layout/Header";
 import AdminHeader from "@/components/layout/AdminHeader";
-
-const Footer = dynamic(() => import("@/components/layout/Footer"), {
-  ssr: false,
-});
 
 export default function ClientLayout({
   children,
@@ -23,7 +18,6 @@ export default function ClientLayout({
       {isAdminPage ? <AdminHeader /> : <Header />}
       <main className="flex-grow">{children}</main>
       <Toaster />
-      <Footer />
     </>
   );
 }
