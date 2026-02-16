@@ -8,6 +8,7 @@ import PixelCameraIcon from "@/components/icons/PixelCameraIcon";
 import PixelLeaderboardIcon from "@/components/icons/PixelLeaderboardIcon";
 import PixelVideoIcon from "@/components/icons/PixelVideoIcon";
 import PixelPokemonIcon from "@/components/icons/PixelPokemonIcon";
+import PixelKeyIcon from "@/components/icons/PixelKeyIcon";
 import { cn } from "@/lib/utils";
 
 function HomePageContent() {
@@ -36,11 +37,17 @@ function HomePageContent() {
       description: "A fun video guessing game.",
       icon: <PixelPokemonIcon className="w-16 h-16 mb-4" />,
     },
+    {
+      href: "/admin/login",
+      title: "Admin Section",
+      description: "Access the admin dashboard.",
+      icon: <PixelKeyIcon className="w-16 h-16 mb-4" />,
+    },
   ];
 
   return (
     <div className="container mx-auto max-w-4xl p-4 pt-10">
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-1">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {menuItems.map((item, index) => (
           <Link href={item.href} key={item.title} className="group">
             <Card className={cn(
