@@ -64,11 +64,11 @@ service cloud.firestore {
 
     /**
      * @description
-     *   Manages the list of events. Admins can read and write.
+     *   Manages the list of events. Publicly accessible.
      * @path /events/{eventId}
      */
     match /events/{eventId} {
-      allow read, write: if isAdmin();
+      allow read, write: if true;
     }
 
     /**
