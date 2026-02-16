@@ -64,12 +64,11 @@ service cloud.firestore {
 
     /**
      * @description
-     *   Manages the list of events. Publicly readable.
+     *   Manages the list of events. Publicly readable and writable for development.
      * @path /events/{eventId}
      */
     match /events/{eventId} {
-      allow get, list: if true;
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
     /**
