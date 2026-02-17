@@ -10,6 +10,7 @@ import {
   deleteDoc,
   orderBy,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import Link from "next/link";
 import {
@@ -69,6 +70,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 
 // Helper component to avoid hydration mismatch error with date formatting.
@@ -95,10 +97,14 @@ export default function AdminMainPage() {
   const firestore = useFirestore();
   const { isAdmin } = useAuth();
   const { games, loading: gamesLoading } = useGames();
-  const [selectedEventId, setSelectedEventId] = useState<string | "all">("all");
+  const [filterEventId, setFilterEventId] = useState<string | "all">("all");
   
   const [events, setEvents] = useState<Event[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
+
+  const [selectedScoreIds, setSelectedScoreIds] = useState<string[]>([]);
+  const [selectedEventIdForAssignment, setSelectedEventIdForAssignment] = useState<string>("");
+  const [isAssigning, setIsAssigning] = useState(false);
 
   const { toast } = useToast();
 
@@ -134,13 +140,13 @@ export default function AdminMainPage() {
     if (!firestore) return null;
     let scoresCollectionRef = collection(firestore, "scoreSubmissions");
     let q;
-    if (selectedEventId === 'all') {
+    if (filterEventId === 'all') {
         q = query(scoresCollectionRef, orderBy("submittedAt", "desc"));
     } else {
-        q = query(scoresCollectionRef, where("eventId", "==", selectedEventId), orderBy("submittedAt", "desc"));
+        q = query(scoresCollectionRef, where("eventId", "==", filterEventId), orderBy("submittedAt", "desc"));
     }
     return q;
-  }, [firestore, selectedEventId]);
+  }, [firestore, filterEventId]);
 
   const { data: scores, isLoading: loadingScores } = useCollection<Score>(scoresQuery);
 
@@ -306,6 +312,72 @@ export default function AdminMainPage() {
       });
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedScoreIds(sortedScores.map((s) => s.id));
+    } else {
+      setSelectedScoreIds([]);
+    }
+  };
+
+  const handleSelectScore = (scoreId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedScoreIds((prev) => [...prev, scoreId]);
+    } else {
+      setSelectedScoreIds((prev) => prev.filter((id) => id !== scoreId));
+    }
+  };
+
+  const handleAssignToEvent = async () => {
+    if (!isAdmin) {
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'You cannot assign scores to events.' });
+      return;
+    }
+    if (selectedScoreIds.length === 0 || !selectedEventIdForAssignment || !firestore) {
+      toast({ variant: 'destructive', title: 'Assignment Failed', description: 'Please select scores and an event.' });
+      return;
+    }
+
+    setIsAssigning(true);
+    const selectedEvent = events.find(e => e.id === selectedEventIdForAssignment);
+    if (!selectedEvent) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Selected event not found.' });
+        setIsAssigning(false);
+        return;
+    }
+
+    const batch = writeBatch(firestore);
+    selectedScoreIds.forEach(scoreId => {
+        const scoreDocRef = doc(firestore, "scoreSubmissions", scoreId);
+        batch.update(scoreDocRef, {
+            eventId: selectedEvent.id,
+            eventName: selectedEvent.name,
+        });
+    });
+
+    try {
+        await batch.commit();
+        toast({
+            title: 'Success!',
+            description: `${selectedScoreIds.length} score${selectedScoreIds.length > 1 ? 's' : ''} assigned to ${selectedEvent.name}.`
+        });
+        setSelectedScoreIds([]);
+        setSelectedEventIdForAssignment("");
+    } catch (error) {
+        console.error("Batch update failed", error);
+        const permissionError = new FirestorePermissionError({
+            path: 'scoreSubmissions',
+            operation: 'update',
+            requestResourceData: { eventId: selectedEvent.id, eventName: selectedEvent.name }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    } finally {
+        setIsAssigning(false);
+    }
+  };
+
+  const numSelected = selectedScoreIds.length;
+  const isAllSelected = numSelected > 0 && numSelected === sortedScores.length;
 
   if (loadingScores || gamesLoading || eventsLoading) {
     return (
@@ -332,7 +404,7 @@ export default function AdminMainPage() {
                 </CardDescription>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
-                <Select onValueChange={setSelectedEventId} defaultValue="all">
+                <Select onValueChange={setFilterEventId} defaultValue="all">
                     <SelectTrigger className="w-full sm:w-[180px]">
                         <SelectValue placeholder="Filter by event" />
                     </SelectTrigger>
@@ -354,10 +426,42 @@ export default function AdminMainPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {numSelected > 0 && (
+                <div className="mb-4 flex flex-col sm:flex-row items-center gap-4 rounded-lg border bg-muted/50 p-4">
+                    <p className="font-medium flex-shrink-0">{numSelected} score{numSelected > 1 ? 's' : ''} selected</p>
+                    <div className="flex flex-grow w-full sm:w-auto items-center gap-2">
+                        <Select onValueChange={setSelectedEventIdForAssignment} value={selectedEventIdForAssignment} disabled={isAssigning || eventsLoading}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select an event to assign" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {eventsLoading ? (
+                                    <div className="flex items-center justify-center p-2">
+                                        <Loader2 className="h-4 w-4 animate-spin"/>
+                                    </div>
+                                ) : (
+                                    events.map(event => <SelectItem key={event.id} value={event.id}>{event.name}</SelectItem>)
+                                )}
+                            </SelectContent>
+                        </Select>
+                        <Button onClick={handleAssignToEvent} disabled={isAssigning || !selectedEventIdForAssignment}>
+                            {isAssigning && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                            Assign
+                        </Button>
+                    </div>
+                </div>
+            )}
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead padding="checkbox" className="w-12">
+                      <Checkbox
+                        checked={isAllSelected}
+                        onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
                     <TableHead>Player</TableHead>
                     <SortableHeader label="Event" sortKey="eventName" />
                     <SortableHeader label="Game" sortKey="gameName" />
@@ -369,7 +473,14 @@ export default function AdminMainPage() {
                 </TableHeader>
                 <TableBody>
                   {sortedScores.map((score) => (
-                    <TableRow key={score.id}>
+                    <TableRow key={score.id} data-state={selectedScoreIds.includes(score.id) && "selected"}>
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                            checked={selectedScoreIds.includes(score.id)}
+                            onCheckedChange={(checked) => handleSelectScore(score.id, !!checked)}
+                            aria-label={`Select score by ${score.playerName}`}
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Avatar className="h-8 w-8">
