@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect } from "react";
@@ -11,7 +12,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.replace("/");
+      router.replace("/admin/login");
     }
   }, [user, loading, router]);
 

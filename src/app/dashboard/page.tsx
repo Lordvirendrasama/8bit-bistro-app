@@ -27,7 +27,6 @@ import {
   errorEmitter,
   FirestorePermissionError,
 } from "@/firebase";
-import { signInAnonymously } from "firebase/auth";
 
 import {
   Card,
@@ -57,6 +56,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { AuthGuard } from "@/components/auth/AuthGuard";
 
 const AddPlayerModal = ({
   open,
@@ -288,19 +288,6 @@ function DashboardPage() {
     string | null
   >(null);
 
-  useEffect(() => {
-    if (!userLoading && !user && auth) {
-      signInAnonymously(auth).catch((error) => {
-        console.error("Anonymous sign-in failed:", error);
-        toast({
-          variant: "destructive",
-          title: "Authentication Failed",
-          description: "Could not sign you in. Please refresh the page.",
-        });
-      });
-    }
-  }, [user, userLoading, auth, toast]);
-  
   useEffect(() => {
     if (newlyAddedPlayerName && players.length > 0) {
       const newPlayer = players.find((p) => p.name === newlyAddedPlayerName);
@@ -657,4 +644,10 @@ function DashboardPage() {
   );
 }
 
-export default DashboardPage;
+export default function GuardedDashboardPage() {
+  return (
+    <AuthGuard>
+      <DashboardPage />
+    </AuthGuard>
+  );
+}
