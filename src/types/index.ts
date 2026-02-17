@@ -37,3 +37,8 @@ export type Score = {
   level: number;
   submittedAt: Timestamp;
 };
+
+export type MediaConfig = {
+    id: string;
+    playlistId: string;
+};
