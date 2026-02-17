@@ -122,7 +122,7 @@ export default function AdminEventsPage() {
   }, [fetchEvents]);
 
 
-  const handleAddEvent = (e: React.FormEvent) => {
+  const handleAddEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) {
       toast({ variant: 'destructive', title: 'Permission Denied', description: 'You do not have permission to add events.' });
@@ -137,27 +137,28 @@ export default function AdminEventsPage() {
       isActive: true,
       createdAt: serverTimestamp(),
     };
-    const eventsCollection = collection(firestore, "events");
-    addDoc(eventsCollection, eventData)
-      .then(() => {
-        toast({
-          title: "Success",
-          description: `Event '${newEventName.trim()}' added.`,
-        });
-        setNewEventName("");
-        fetchEvents(); // Refetch events
-      })
-      .catch(() => {
+    
+    try {
+      const eventsCollection = collection(firestore, "events");
+      await addDoc(eventsCollection, eventData);
+      
+      toast({
+        title: "Success",
+        description: `Event '${newEventName.trim()}' added.`,
+      });
+      setNewEventName("");
+      fetchEvents(); // Refetch events
+    } catch (error) {
+        console.error("Failed to add event:", error);
         const permissionError = new FirestorePermissionError({
-            path: eventsCollection.path,
+            path: "events",
             operation: 'create',
             requestResourceData: eventData
         });
         errorEmitter.emit('permission-error', permissionError);
-      })
-      .finally(() => {
-        setIsSubmitting(false);
-      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const openDeleteAlert = (event: Event) => {
