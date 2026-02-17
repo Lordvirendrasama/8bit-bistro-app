@@ -59,9 +59,9 @@ export default function AdminLoginPage() {
       });
       router.replace("/admin/dashboard");
     } catch (signInError: any) {
-      // If sign-in fails because the user doesn't exist...
+      // If sign-in fails because the user doesn't exist or password is wrong...
       if (signInError.code === 'auth/invalid-credential' || signInError.code === 'auth/user-not-found') {
-        // ...try to create the user instead. This user will NOT be an admin by default.
+        // ...try to create the user instead.
         try {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
           // Force refresh the ID token to ensure claims are up-to-date for security rules.
@@ -74,13 +74,22 @@ export default function AdminLoginPage() {
           // Redirect to the dashboard. The AdminGuard will determine access.
           router.replace("/admin/dashboard");
         } catch (signUpError: any) {
-          // This can happen if the email exists but the password was wrong on the initial attempt.
-          console.error("Admin sign-up fallback error:", signUpError);
-          toast({
-            variant: "destructive",
-            title: "Login Failed",
-            description: "Invalid credentials. Please check your email and password.",
-          });
+          // This path is expected if the user exists but the password was wrong on the initial sign-in attempt.
+          if (signUpError.code === 'auth/email-already-in-use') {
+            toast({
+              variant: "destructive",
+              title: "Login Failed",
+              description: "Invalid credentials. Please check your email and password.",
+            });
+          } else {
+            // Handle other, unexpected sign-up errors.
+            console.error("Admin sign-up fallback error:", signUpError);
+            toast({
+              variant: "destructive",
+              title: "Sign-Up Error",
+              description: signUpError.message || "Could not create account.",
+            });
+          }
         }
       } else {
         // Handle other specific sign-in errors (e.g., network issues)
