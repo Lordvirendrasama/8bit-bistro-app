@@ -50,7 +50,9 @@ export default function AdminLoginPage() {
     setIsLoading(true);
     try {
       // First, try to sign in.
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // Force refresh the ID token to ensure claims are up-to-date for security rules.
+      await userCredential.user.getIdToken(true);
       toast({
         title: "Login Successful",
         description: "Redirecting to dashboard...",
@@ -61,7 +63,9 @@ export default function AdminLoginPage() {
       if (signInError.code === 'auth/invalid-credential' || signInError.code === 'auth/user-not-found') {
         // ...try to create the user instead. This user will NOT be an admin by default.
         try {
-          await createUserWithEmailAndPassword(auth, email, password);
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          // Force refresh the ID token to ensure claims are up-to-date for security rules.
+          await userCredential.user.getIdToken(true);
 
           toast({
             title: "Account Created",
