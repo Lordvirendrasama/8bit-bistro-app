@@ -2,21 +2,10 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Explicitly allow all access to each collection to force a rule update.
-    match /players/{document=**} {
-      allow read, write: if true;
-    }
-    match /games/{document=**} {
-      allow read, write: if true;
-    }
-    match /events/{document=**} {
-      allow read, write: if true;
-    }
-    match /scoreSubmissions/{document=**} {
-      allow read, write: if true;
-    }
-    match /admins/{document=**} {
-      allow read, write: if true;
+    match /{document=**} {
+      // This rule allows all reads and writes, regardless of authentication.
+      // It is completely open and insecure, for debugging purposes only.
+      allow read, write: if request.auth != null || request.auth == null;
     }
   }
 }

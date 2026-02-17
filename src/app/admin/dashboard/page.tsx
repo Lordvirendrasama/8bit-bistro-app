@@ -24,7 +24,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 
 import { useFirestore, useCollection, useMemoFirebase, FirestorePermissionError, errorEmitter } from "@/firebase";
-import type { Score } from "@/types";
+import type { Score, Game, Event } from "@/types";
 
 import {
   Card,
@@ -61,7 +61,6 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useGames } from "@/lib/hooks/use-games";
-import { useEvents } from "@/lib/hooks/use-events";
 import {
   Select,
   SelectContent,
@@ -94,9 +93,14 @@ const TimeAgo = ({ timestamp }: { timestamp?: { toDate: () => Date } }) => {
 export default function AdminMainPage() {
   const firestore = useFirestore();
   const { games, loading: gamesLoading } = useGames();
-  const { events, loading: eventsLoading } = useEvents();
   const [selectedEventId, setSelectedEventId] = useState<string | "all">("all");
   
+  const eventsQuery = useMemoFirebase(() => {
+      if (!firestore) return null;
+      return query(collection(firestore, "events"), orderBy("createdAt", 'desc'));
+  }, [firestore]);
+  const { data: events, isLoading: eventsLoading } = useCollection<Event>(eventsQuery);
+
   const scoresQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     let scoresCollectionRef = collection(firestore, "scoreSubmissions");

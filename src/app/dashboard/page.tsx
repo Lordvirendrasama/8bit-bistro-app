@@ -19,12 +19,15 @@ import {
   query,
   where,
   getDocs,
+  orderBy,
 } from "firebase/firestore";
 import {
   useFirestore,
   useAuth as useFirebaseAuthInstance,
   errorEmitter,
   FirestorePermissionError,
+  useCollection,
+  useMemoFirebase,
 } from "@/firebase";
 import { signInAnonymously } from "firebase/auth";
 
@@ -40,8 +43,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useGames } from "@/lib/hooks/use-games";
 import { usePlayers } from "@/lib/hooks/use-players";
-import { useEvents } from "@/lib/hooks/use-events";
-import type { Player } from "@/types";
+import type { Player, Event } from "@/types";
 import {
   Popover,
   PopoverContent,
@@ -239,9 +241,14 @@ function DashboardPage() {
   const firestore = useFirestore();
   const { games, loading: gamesLoading } = useGames();
   const { players, loading: playersLoading } = usePlayers();
-  const { events, loading: eventsLoading } = useEvents({ activeOnly: true });
   const { toast } = useToast();
   const router = useRouter();
+
+  const eventsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "events"), where("isActive", "==", true), orderBy("createdAt", 'desc'));
+  }, [firestore]);
+  const { data: events, isLoading: eventsLoading } = useCollection<Event>(eventsQuery);
 
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -295,7 +302,7 @@ function DashboardPage() {
     const scoreValue = formData.get("scoreValue") as string;
     const level = formData.get("level") as string;
     const game = games.find((g) => g.id === selectedGameId);
-    const selectedEvent = events.find((e) => e.id === selectedEventId);
+    const selectedEvent = events?.find((e) => e.id === selectedEventId);
 
     if (
       !user ||
@@ -497,7 +504,7 @@ function DashboardPage() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {events.map((event) => (
+                      {events?.map((event) => (
                         <Button
                           key={event.id}
                           type="button"

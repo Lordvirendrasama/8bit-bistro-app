@@ -67,13 +67,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useEvents } from "@/lib/hooks/use-events";
 
 export default function AdminEventsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const { events, loading } = useEvents();
+  const eventsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "events"), orderBy("createdAt", "desc"));
+  }, [firestore]);
+  const { data: events, isLoading: loading } = useCollection<Event>(eventsQuery);
   
   const [newEventName, setNewEventName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
