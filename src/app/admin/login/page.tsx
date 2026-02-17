@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, FormEvent } from "react";
@@ -6,7 +7,6 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
 } from "firebase/auth";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth as useFirebaseAuth, useFirestore } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -24,7 +24,6 @@ import { Loader2 } from "lucide-react";
 export default function AdminLoginPage() {
   const router = useRouter();
   const auth = useFirebaseAuth();
-  const firestore = useFirestore();
   const { toast } = useToast();
   const [email, setEmail] = useState("admin@example.com");
   const [password, setPassword] = useState("password");
@@ -58,27 +57,20 @@ export default function AdminLoginPage() {
       });
       router.replace("/admin/dashboard");
     } catch (signInError: any) {
-      // If sign-in fails because the user doesn't exist or credentials are new...
+      // If sign-in fails because the user doesn't exist...
       if (signInError.code === 'auth/invalid-credential' || signInError.code === 'auth/user-not-found') {
-        // ...try to create the user instead.
+        // ...try to create the user instead. This user will NOT be an admin by default.
         try {
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-
-          // FIX: Create the admin document in Firestore to grant permissions
-          const adminDocRef = doc(firestore, "admins", userCredential.user.uid);
-          await setDoc(adminDocRef, {
-            email: userCredential.user.email,
-            createdAt: serverTimestamp()
-          });
+          await createUserWithEmailAndPassword(auth, email, password);
 
           toast({
-            title: "Admin Account Created",
+            title: "Account Created",
             description: "Successfully created your account and logged you in.",
           });
-          // The auth state listener will handle the user state, but we can redirect.
+          // Redirect to the dashboard. The AdminGuard will determine access.
           router.replace("/admin/dashboard");
         } catch (signUpError: any) {
-          // This can happen if the email exists but the password was wrong.
+          // This can happen if the email exists but the password was wrong on the initial attempt.
           console.error("Admin sign-up fallback error:", signUpError);
           toast({
             variant: "destructive",
@@ -106,8 +98,7 @@ export default function AdminLoginPage() {
         <CardHeader>
           <CardTitle className="font-headline text-3xl">Admin Login</CardTitle>
           <CardDescription>
-            Use the default credentials below. If the account doesn't exist, it
-            will be created for you automatically.
+            Log in with an existing admin account. Admin privileges must be granted manually in the Firebase Console.
           </CardDescription>
         </CardHeader>
         <CardContent>
