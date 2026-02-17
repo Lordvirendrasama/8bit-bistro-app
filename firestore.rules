@@ -3,20 +3,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check for admin role by seeing if a document
-    // exists for the user's UID in the 'admins' collection.
+    // Helper function to check for admin role based on email.
     function isAdmin() {
-      return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      // The admin role is determined solely by the user's email.
+      return request.auth.token.email == 'admin@8bit.com';
     }
 
     // --- Security Rules for Collections ---
 
     // Admins Collection:
-    // - Only other admins can create/update/delete admin documents.
-    // - An authenticated user is allowed to check their own admin status.
+    // This collection is no longer used for authorization.
+    // Rules are set to deny all access to prevent accidental usage.
     match /admins/{userId} {
-      allow read: if request.auth.uid == userId;
-      allow write: if isAdmin();
+      allow read, write: if false;
     }
     
     // Players Collection:
