@@ -14,6 +14,7 @@ export default function AdminHeader() {
     { href: '/admin/users', label: 'Users' },
     { href: '/admin/games', label: 'Games' },
     { href: '/admin/events', label: 'Events' },
+    { href: '/admin/settings', label: 'Settings' },
   ];
 
   return (
@@ -25,12 +26,6 @@ export default function AdminHeader() {
                 <Logo className="h-40" />
             </Link>
             <div className="flex items-center justify-self-end gap-2">
-                <Button variant="outline" size="sm" asChild>
-                    <Link href="/admin/settings">
-                        <Settings className="mr-2 h-4 w-4" />
-                        Settings
-                    </Link>
-                </Button>
                 <Button variant="outline" size="sm" asChild>
                     <Link href="/">View App</Link>
                 </Button>
