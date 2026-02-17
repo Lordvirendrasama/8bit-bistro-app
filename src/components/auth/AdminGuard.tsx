@@ -49,6 +49,13 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
                 <CardDescription>
                     You do not have the necessary permissions to access this page. Please contact a system administrator if you believe this is an error.
                 </CardDescription>
+
+                <div className="mt-4 rounded-md border border-dashed border-muted-foreground/50 bg-muted/50 p-3 text-left text-xs text-muted-foreground">
+                    <h3 className="font-bold text-foreground mb-2">Debug Info:</h3>
+                    <p><strong>UID:</strong> {user.uid}</p>
+                    <p><strong>Email:</strong> {user.email}</p>
+                </div>
+
                 <Button onClick={() => router.push('/')} className="mt-6">
                     Return to Home
                 </Button>
