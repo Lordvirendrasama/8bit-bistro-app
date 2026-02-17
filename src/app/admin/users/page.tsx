@@ -1,14 +1,14 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
-import { collection, query, orderBy, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { useState, useMemo, useEffect } from "react";
+import { collection, query, orderBy, doc, updateDoc, deleteDoc, getDocs, writeBatch } from "firebase/firestore";
 import { formatDistanceToNow } from "date-fns";
 import { Loader2, ChevronDown, ChevronUp, Instagram, Users, MoreVertical, Edit, Trash2 } from "lucide-react";
 
 import { useFirestore, useCollection, useMemoFirebase, FirestorePermissionError, errorEmitter } from "@/firebase";
 import { useAuth } from "@/hooks/use-auth";
-import type { Player } from "@/types";
+import type { Player, Event } from "@/types";
 import {
   Card,
   CardContent,
@@ -54,6 +54,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 
 export default function AdminUsersPage() {
   const firestore = useFirestore();
@@ -66,6 +75,41 @@ export default function AdminUsersPage() {
   }, [firestore]);
 
   const { data: players, isLoading: loadingPlayers } = useCollection<Player>(playersQuery);
+
+  const [events, setEvents] = useState<Event[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string>("");
+  const [isAssigning, setIsAssigning] = useState(false);
+
+  useEffect(() => {
+    if (!firestore) {
+      setEventsLoading(false);
+      return;
+    }
+    const fetchEvents = async () => {
+      setEventsLoading(true);
+      try {
+        const eventsQuery = query(collection(firestore, "events"), orderBy("createdAt", 'desc'));
+        const querySnapshot = await getDocs(eventsQuery);
+        const eventsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Event));
+        setEvents(eventsData);
+      } catch (error) {
+          console.error("Error fetching events:", error);
+          toast({
+            variant: 'destructive',
+            title: 'Failed to load events',
+            description: 'Could not fetch events for assignment.',
+          });
+          setEvents([]);
+      } finally {
+        setEventsLoading(false);
+      }
+    };
+    fetchEvents();
+  }, [firestore, toast]);
+
 
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Player;
@@ -228,6 +272,73 @@ export default function AdminUsersPage() {
       });
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedPlayerIds(sortedPlayers.map((p) => p.id));
+    } else {
+      setSelectedPlayerIds([]);
+    }
+  };
+
+  const handleSelectPlayer = (playerId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedPlayerIds((prev) => [...prev, playerId]);
+    } else {
+      setSelectedPlayerIds((prev) => prev.filter((id) => id !== playerId));
+    }
+  };
+
+  const handleAssignToEvent = async () => {
+    if (!isAdmin) {
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'You cannot assign players to events.' });
+      return;
+    }
+    if (selectedPlayerIds.length === 0 || !selectedEventId || !firestore) {
+      toast({ variant: 'destructive', title: 'Assignment Failed', description: 'Please select players and an event.' });
+      return;
+    }
+
+    setIsAssigning(true);
+    const selectedEvent = events.find(e => e.id === selectedEventId);
+    if (!selectedEvent) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Selected event not found.' });
+        setIsAssigning(false);
+        return;
+    }
+
+    const batch = writeBatch(firestore);
+    selectedPlayerIds.forEach(playerId => {
+        const playerDocRef = doc(firestore, "players", playerId);
+        batch.update(playerDocRef, {
+            eventId: selectedEvent.id,
+            eventName: selectedEvent.name,
+        });
+    });
+
+    try {
+        await batch.commit();
+        toast({
+            title: 'Success!',
+            description: `${selectedPlayerIds.length} players assigned to ${selectedEvent.name}.`
+        });
+        setSelectedPlayerIds([]);
+        setSelectedEventId("");
+    } catch (error) {
+        console.error("Batch update failed", error);
+        const permissionError = new FirestorePermissionError({
+            path: 'players',
+            operation: 'update',
+            requestResourceData: { eventId: selectedEvent.id, eventName: selectedEvent.name }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    } finally {
+        setIsAssigning(false);
+    }
+  };
+
+  const numSelected = selectedPlayerIds.length;
+  const isAllSelected = numSelected > 0 && numSelected === sortedPlayers.length;
+
   if (loadingPlayers) {
     return (
       <div className="p-8 flex justify-center items-center">
@@ -251,20 +362,60 @@ export default function AdminUsersPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {numSelected > 0 && (
+                <div className="mb-4 flex flex-col sm:flex-row items-center gap-4 rounded-lg border bg-muted/50 p-4">
+                    <p className="font-medium flex-shrink-0">{numSelected} player{numSelected > 1 ? 's' : ''} selected</p>
+                    <div className="flex flex-grow w-full sm:w-auto items-center gap-2">
+                        <Select onValueChange={setSelectedEventId} value={selectedEventId} disabled={isAssigning || eventsLoading}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select an event to assign" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {eventsLoading ? (
+                                    <div className="flex items-center justify-center p-2">
+                                        <Loader2 className="h-4 w-4 animate-spin"/>
+                                    </div>
+                                ) : (
+                                    events.map(event => <SelectItem key={event.id} value={event.id}>{event.name}</SelectItem>)
+                                )}
+                            </SelectContent>
+                        </Select>
+                        <Button onClick={handleAssignToEvent} disabled={isAssigning || !selectedEventId}>
+                            {isAssigning && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                            Assign
+                        </Button>
+                    </div>
+                </div>
+            )}
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead padding="checkbox" className="w-12">
+                      <Checkbox
+                        checked={isAllSelected}
+                        onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
                     <SortableHeader label="Player" sortKey="name" />
                     <SortableHeader label="Instagram" sortKey="instagram" />
                     <TableHead>Group Size</TableHead>
+                    <TableHead>Current Event</TableHead>
                     <SortableHeader label="Registered" sortKey="createdAt" />
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sortedPlayers.map((player) => (
-                    <TableRow key={player.id}>
+                    <TableRow key={player.id} data-state={selectedPlayerIds.includes(player.id) && "selected"}>
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                            checked={selectedPlayerIds.includes(player.id)}
+                            onCheckedChange={(checked) => handleSelectPlayer(player.id, !!checked)}
+                            aria-label={`Select player ${player.name}`}
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-9 w-9">
@@ -295,6 +446,9 @@ export default function AdminUsersPage() {
                               <Users className="h-4 w-4" />
                               {player.groupSize}
                           </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {player.eventName ? <Badge variant="secondary">{player.eventName}</Badge> : <span className="text-muted-foreground/50">None</span>}
                       </TableCell>
                       <TableCell>
                         {player.createdAt
@@ -330,7 +484,7 @@ export default function AdminUsersPage() {
                   ))}
                   {sortedPlayers.length === 0 && (
                       <TableRow>
-                          <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
+                          <TableCell colSpan={7} className="text-center text-muted-foreground h-24">
                               No players have registered yet.
                           </TableCell>
                       </TableRow>
@@ -434,3 +588,4 @@ export default function AdminUsersPage() {
     </>
   );
 }
+

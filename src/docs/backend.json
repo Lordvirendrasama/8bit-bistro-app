@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Player": {
@@ -26,6 +27,14 @@
           "type": "string",
           "description": "Timestamp when the player record was created.",
           "format": "date-time"
+        },
+        "eventId": {
+          "type": "string",
+          "description": "Reference to the Event the player is currently assigned to."
+        },
+        "eventName": {
+          "type": "string",
+          "description": "Denormalized name of the event the player is currently assigned to."
         }
       },
       "required": [

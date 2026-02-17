@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export type Player = {
@@ -6,6 +7,8 @@ export type Player = {
   instagram?: string;
   groupSize: number;
   createdAt: Timestamp;
+  eventId?: string;
+  eventName?: string;
 };
 
 export type Game = {
