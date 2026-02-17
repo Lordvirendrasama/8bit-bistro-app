@@ -2,22 +2,30 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/use-auth";
+import { useUser } from "@/firebase"; // Directly use the granular hook from the provider
 import { Loader2, ShieldAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "../ui/button";
 
 export function AdminGuard({ children }: { children: React.ReactNode }) {
-  const { user, isAdmin, loading } = useAuth();
+  // Destructure all states from the provider's hook
+  const { user, isAdmin, isUserLoading, isRoleLoading } = useUser();
   const router = useRouter();
 
+  // This combined loading state is the key.
+  // It ensures we wait for BOTH Firebase Auth to initialize AND the Firestore role check to complete.
+  const isLoading = isUserLoading || isRoleLoading;
+
   useEffect(() => {
-    if (!loading && !user) {
+    // Only attempt to redirect *after* all loading is finished.
+    if (!isLoading && !user) {
       router.replace("/admin/login");
     }
-  }, [user, loading, router]);
+  }, [user, isLoading, router]);
 
-  if (loading) {
+  // If either authentication or the role check is in progress, show the full-screen loader.
+  // This prevents any premature rendering or redirection.
+  if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -25,9 +33,10 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     );
   }
   
+  // If loading is finished but there's still no user, show the loader
+  // while the useEffect redirect to the login page happens. This prevents
+  // a flash of the "Access Denied" page for unauthenticated users.
   if (!user) {
-    // This case is primarily handled by the useEffect redirect,
-    // but this prevents a flash of content.
     return (
         <div className="flex h-screen items-center justify-center bg-background">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -35,6 +44,8 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // ONLY after all loading is complete and we have a user, we check for admin role.
+  // If the user is not an admin, show the "Access Denied" page.
   if (!isAdmin) {
     return (
       <div className="container mx-auto flex h-[calc(100vh-200px)] items-center justify-center p-4">
@@ -65,5 +76,6 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // If all checks pass, the user is an authenticated admin, so we render the protected content.
   return <>{children}</>;
 }
