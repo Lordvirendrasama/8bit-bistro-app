@@ -2,7 +2,10 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+} from "firebase/auth";
 import { useAuth as useFirebaseAuth } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -21,8 +24,8 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const auth = useFirebaseAuth();
   const { toast } = useToast();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("admin@example.com");
+  const [password, setPassword] = useState("password");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: FormEvent) => {
@@ -35,21 +38,53 @@ export default function AdminLoginPage() {
       });
       return;
     }
+    if (password.length < 6) {
+      toast({
+        variant: "destructive",
+        title: "Weak Password",
+        description: "Password must be at least 6 characters long.",
+      });
+      return;
+    }
     setIsLoading(true);
     try {
+      // First, try to sign in.
       await signInWithEmailAndPassword(auth, email, password);
       toast({
         title: "Login Successful",
         description: "Redirecting to dashboard...",
       });
       router.replace("/admin/dashboard");
-    } catch (error: any) {
-      console.error("Admin login error:", error);
-      toast({
-        variant: "destructive",
-        title: "Login Failed",
-        description: "Invalid credentials. Please try again.",
-      });
+    } catch (signInError: any) {
+      // If sign-in fails because the user doesn't exist or credentials are new...
+      if (signInError.code === 'auth/invalid-credential' || signInError.code === 'auth/user-not-found') {
+        // ...try to create the user instead.
+        try {
+          await createUserWithEmailAndPassword(auth, email, password);
+          toast({
+            title: "Admin Account Created",
+            description: "Successfully created your account and logged you in.",
+          });
+          // The auth state listener will handle the user state, but we can redirect.
+          router.replace("/admin/dashboard");
+        } catch (signUpError: any) {
+          // This can happen if the email exists but the password was wrong.
+          console.error("Admin sign-up fallback error:", signUpError);
+          toast({
+            variant: "destructive",
+            title: "Login Failed",
+            description: "Invalid credentials. Please check your email and password.",
+          });
+        }
+      } else {
+        // Handle other specific sign-in errors (e.g., network issues)
+        console.error("Admin login error:", signInError);
+        toast({
+          variant: "destructive",
+          title: "Login Error",
+          description: signInError.message || "An unexpected error occurred.",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -61,7 +96,8 @@ export default function AdminLoginPage() {
         <CardHeader>
           <CardTitle className="font-headline text-3xl">Admin Login</CardTitle>
           <CardDescription>
-            Enter your credentials to access the admin dashboard.
+            Use the default credentials below. If the account doesn't exist, it
+            will be created for you automatically.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -83,16 +119,17 @@ export default function AdminLoginPage() {
               <Input
                 id="password"
                 type="password"
-                placeholder="••••••••"
+                placeholder="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={isLoading}
+                minLength={6}
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Log In
+              Log In / Sign Up
             </Button>
           </form>
         </CardContent>
