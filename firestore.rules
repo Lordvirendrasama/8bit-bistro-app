@@ -43,11 +43,11 @@ service cloud.firestore {
     }
 
     // Score Submissions Collection:
-    // - Any authenticated user can create a score submission and read all scores (for the public leaderboard).
-    // - Only admins can update or delete scores (for moderation).
+    // - Admins get full read/write access for moderation.
+    // - Any authenticated user can also create scores and read them for the public leaderboard.
     match /scoreSubmissions/{scoreSubmissionId} {
+      allow read, write: if isAdmin();
       allow read, create: if request.auth != null;
-      allow update, delete: if isAdmin();
     }
   }
 }
