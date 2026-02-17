@@ -35,11 +35,11 @@ service cloud.firestore {
     }
     
     // Events Collection:
-    // - Any authenticated user can read the list of events.
-    // - Only admins can create, update, or delete them.
+    // - Admins are granted full read and write access.
+    // - Other authenticated users are granted read-only access.
     match /events/{eventId} {
+      allow read, write: if isAdmin();
       allow read: if request.auth != null;
-      allow write: if isAdmin();
     }
 
     // Score Submissions Collection:
