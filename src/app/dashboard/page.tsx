@@ -26,8 +26,6 @@ import {
   useAuth as useFirebaseAuthInstance,
   errorEmitter,
   FirestorePermissionError,
-  useCollection,
-  useMemoFirebase,
 } from "@/firebase";
 import { signInAnonymously } from "firebase/auth";
 
@@ -244,11 +242,34 @@ function DashboardPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const eventsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, "events"), where("isActive", "==", true), orderBy("createdAt", 'desc'));
+  const [events, setEvents] = useState<Event[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!firestore) {
+      setEventsLoading(false);
+      return;
+    }
+    const fetchEvents = async () => {
+      setEventsLoading(true);
+      try {
+        const eventsQuery = query(collection(firestore, "events"), where("isActive", "==", true), orderBy("createdAt", 'desc'));
+        const querySnapshot = await getDocs(eventsQuery);
+        const eventsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Event));
+        setEvents(eventsData);
+      } catch (error) {
+          console.error("Error fetching events:", error);
+          const contextualError = new FirestorePermissionError({
+              path: 'events',
+              operation: 'list',
+          });
+          errorEmitter.emit('permission-error', contextualError);
+      } finally {
+        setEventsLoading(false);
+      }
+    };
+    fetchEvents();
   }, [firestore]);
-  const { data: events, isLoading: eventsLoading } = useCollection<Event>(eventsQuery);
 
   const formRef = useRef<HTMLFormElement>(null);
 

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   collection,
   query,
@@ -11,6 +11,7 @@ import {
   doc,
   updateDoc,
   serverTimestamp,
+  getDocs,
 } from "firebase/firestore";
 import {
   Edit,
@@ -20,7 +21,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { useFirestore, FirestorePermissionError, errorEmitter, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirestore, FirestorePermissionError, errorEmitter } from "@/firebase";
 import type { Event } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -72,11 +73,8 @@ export default function AdminEventsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const eventsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, "events"), orderBy("createdAt", "desc"));
-  }, [firestore]);
-  const { data: events, isLoading: loading } = useCollection<Event>(eventsQuery);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
   
   const [newEventName, setNewEventName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -88,6 +86,31 @@ export default function AdminEventsPage() {
 
   const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
+
+  const fetchEvents = useCallback(async () => {
+    if (!firestore) return;
+    setLoading(true);
+    try {
+        const eventsQuery = query(collection(firestore, "events"), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(eventsQuery);
+        const eventsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Event));
+        setEvents(eventsData);
+    } catch (error) {
+        console.error("Error fetching events:", error);
+        const contextualError = new FirestorePermissionError({
+            path: 'events',
+            operation: 'list',
+        });
+        errorEmitter.emit('permission-error', contextualError);
+    } finally {
+        setLoading(false);
+    }
+  }, [firestore]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
 
   const handleAddEvent = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,6 +131,7 @@ export default function AdminEventsPage() {
           description: `Event '${newEventName.trim()}' added.`,
         });
         setNewEventName("");
+        fetchEvents(); // Refetch events
       })
       .catch(() => {
         const permissionError = new FirestorePermissionError({
@@ -134,6 +158,7 @@ export default function AdminEventsPage() {
     deleteDoc(eventDocRef)
       .then(() => {
         toast({ title: "Success", description: "Event deleted." });
+        fetchEvents(); // Refetch events
       })
       .catch(() => {
         const permissionError = new FirestorePermissionError({
@@ -158,6 +183,7 @@ export default function AdminEventsPage() {
           title: "Success",
           description: "Event status updated.",
         });
+        fetchEvents(); // Refetch events
       })
       .catch(() => {
         const permissionError = new FirestorePermissionError({
@@ -186,6 +212,7 @@ export default function AdminEventsPage() {
       .then(() => {
         toast({ title: "Success", description: "Event name updated." });
         setEditModalOpen(false);
+        fetchEvents(); // Refetch events
       })
       .catch(() => {
         const permissionError = new FirestorePermissionError({
