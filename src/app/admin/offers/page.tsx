@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useFirestore, FirestorePermissionError, errorEmitter, useCollection, useMemoFirebase } from "@/firebase";
 import { useAuth } from "@/hooks/use-auth";
-import type { Offer } from "@/types";
+import type { Offer, DayOfWeek } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -40,6 +40,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const initialOfferState: Partial<Offer> = {
   title: "",
@@ -49,8 +50,13 @@ const initialOfferState: Partial<Offer> = {
   triggerType: "random_drop",
   startTime: undefined,
   endTime: undefined,
+  daysOfWeek: [],
+  recurringStartTime: "",
+  recurringEndTime: "",
   isActive: true,
 };
+
+const days: DayOfWeek[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 export default function AdminOffersPage() {
   const firestore = useFirestore();
@@ -69,14 +75,23 @@ export default function AdminOffersPage() {
   const [currentOffer, setCurrentOffer] = useState<Partial<Offer>>(initialOfferState);
   const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [offerToDelete, setOfferToDelete] = useState<Offer | null>(null);
+  const [scheduleType, setScheduleType] = useState<'one-time' | 'recurring'>('one-time');
 
   const handleAddNew = () => {
     setCurrentOffer(initialOfferState);
+    setScheduleType('one-time');
     setDialogOpen(true);
   };
 
   const handleEdit = (offer: Offer) => {
     setCurrentOffer(offer);
+    if (offer.triggerType === 'scheduled') {
+      if (offer.daysOfWeek && offer.daysOfWeek.length > 0) {
+        setScheduleType('recurring');
+      } else {
+        setScheduleType('one-time');
+      }
+    }
     setDialogOpen(true);
   };
 
@@ -113,6 +128,16 @@ export default function AdminOffersPage() {
       .catch(() => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: offerDocRef.path, operation: 'update', requestResourceData: updatedData })));
   };
 
+  const handleDayToggle = (day: DayOfWeek) => {
+    setCurrentOffer(prev => {
+        const currentDays = prev.daysOfWeek || [];
+        const newDays = currentDays.includes(day)
+            ? currentDays.filter(d => d !== day)
+            : [...currentDays, day];
+        return {...prev, daysOfWeek: newDays};
+    });
+  };
+
   const handleSave = async () => {
     if (!isAdmin) {
       toast({ variant: 'destructive', title: 'Permission Denied' });
@@ -125,7 +150,19 @@ export default function AdminOffersPage() {
 
     setIsSubmitting(true);
     
-    const offerData = { ...currentOffer };
+    const offerData: Partial<Offer> = { ...currentOffer };
+
+    if (offerData.triggerType === 'scheduled') {
+      if (scheduleType === 'one-time') {
+        delete offerData.daysOfWeek;
+        delete offerData.recurringStartTime;
+        delete offerData.recurringEndTime;
+      } else { // recurring
+        delete offerData.startTime;
+        delete offerData.endTime;
+      }
+    }
+
 
     try {
       if (offerData.id) {
@@ -239,7 +276,79 @@ export default function AdminOffersPage() {
                     </SelectContent>
                 </Select>
             </div>
-             <div className="grid grid-cols-4 items-center gap-4">
+
+            {currentOffer.triggerType === 'scheduled' && (
+              <>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label className="text-right">Schedule Type</Label>
+                    <RadioGroup
+                        value={scheduleType}
+                        onValueChange={(value) => setScheduleType(value as 'one-time' | 'recurring')}
+                        className="col-span-3 flex gap-4"
+                    >
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="one-time" id="r1" />
+                            <Label htmlFor="r1">One-time</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="recurring" id="r2" />
+                            <Label htmlFor="r2">Recurring</Label>
+                        </div>
+                    </RadioGroup>
+                </div>
+                {scheduleType === 'one-time' ? (
+                  <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Start Date</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !currentOffer.startTime && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {currentOffer.startTime ? format(currentOffer.startTime.toDate(), "PPP") : <span>Pick a date</span>}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={currentOffer.startTime?.toDate()} onSelect={(d) => setCurrentOffer(p => ({...p, startTime: d ? Timestamp.fromDate(d) : undefined}))} initialFocus /></PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>End Date</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !currentOffer.endTime && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {currentOffer.endTime ? format(currentOffer.endTime.toDate(), "PPP") : <span>Pick a date</span>}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={currentOffer.endTime?.toDate()} onSelect={(d) => setCurrentOffer(p => ({...p, endTime: d ? Timestamp.fromDate(d) : undefined}))} initialFocus /></PopoverContent>
+                        </Popover>
+                      </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-4 items-start gap-4">
+                        <Label className="text-right pt-2">Days</Label>
+                        <div className="col-span-3 flex flex-wrap gap-1">
+                            {days.map((day) => (
+                                <Button key={day} type="button" variant={currentOffer.daysOfWeek?.includes(day) ? 'default' : 'outline'} size="sm" onClick={() => handleDayToggle(day)} className="capitalize w-12">{day.substring(0,3)}</Button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="recurringStartTime">From</Label>
+                            <Input id="recurringStartTime" type="time" value={currentOffer.recurringStartTime || ''} onChange={(e) => setCurrentOffer(p => ({...p, recurringStartTime: e.target.value}))}/>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="recurringEndTime">Until</Label>
+                            <Input id="recurringEndTime" type="time" value={currentOffer.recurringEndTime || ''} onChange={(e) => setCurrentOffer(p => ({...p, recurringEndTime: e.target.value}))}/>
+                        </div>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+
+            <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="rewardType" className="text-right">Reward Type</Label>
                 <Select value={currentOffer.rewardType} onValueChange={(v) => setCurrentOffer(p => ({...p, rewardType: v as Offer['rewardType']}))}>
                     <SelectTrigger className="col-span-3"><SelectValue placeholder="Select a reward type" /></SelectTrigger>
@@ -253,32 +362,6 @@ export default function AdminOffersPage() {
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="value" className="text-right">Reward Value</Label>
                 <Input id="value" value={currentOffer.value} onChange={(e) => setCurrentOffer(p => ({...p, value: e.target.value}))} className="col-span-3" placeholder="e.g. Free Drink, 10%, 15 mins"/>
-            </div>
-             <div className="grid grid-cols-2 gap-4 items-center">
-                 <div className="space-y-2">
-                    <Label>Start Time (Optional)</Label>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !currentOffer.startTime && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {currentOffer.startTime ? format(currentOffer.startTime.toDate(), "PPP") : <span>Pick a date</span>}
-                        </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={currentOffer.startTime?.toDate()} onSelect={(d) => setCurrentOffer(p => ({...p, startTime: d ? Timestamp.fromDate(d) : undefined}))} initialFocus /></PopoverContent>
-                    </Popover>
-                 </div>
-                  <div className="space-y-2">
-                    <Label>End Time (Optional)</Label>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !currentOffer.endTime && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {currentOffer.endTime ? format(currentOffer.endTime.toDate(), "PPP") : <span>Pick a date</span>}
-                        </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={currentOffer.endTime?.toDate()} onSelect={(d) => setCurrentOffer(p => ({...p, endTime: d ? Timestamp.fromDate(d) : undefined}))} initialFocus /></PopoverContent>
-                    </Popover>
-                 </div>
             </div>
           </div>
           <DialogFooter>

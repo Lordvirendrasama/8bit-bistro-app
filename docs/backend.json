@@ -158,8 +158,15 @@
         "rewardType": { "type": "string", "enum": ["food", "discount", "bonus_time"], "description": "The category of the reward." },
         "value": { "type": "string", "description": "The value of the reward (e.g., 'Free Drink', '10%', '15 mins')." },
         "triggerType": { "type": "string", "enum": ["random_drop", "highscore", "scheduled", "streak"], "description": "The condition that triggers the offer." },
-        "startTime": { "type": "string", "format": "date-time", "description": "The time the offer becomes valid." },
-        "endTime": { "type": "string", "format": "date-time", "description": "The time the offer expires." },
+        "startTime": { "type": "string", "format": "date-time", "description": "The time the offer becomes valid for a one-time scheduled offer." },
+        "endTime": { "type": "string", "format": "date-time", "description": "The time the offer expires for a one-time scheduled offer." },
+        "daysOfWeek": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] },
+          "description": "The days of the week a recurring offer is active."
+        },
+        "recurringStartTime": { "type": "string", "description": "The start time for a recurring offer in HH:mm format." },
+        "recurringEndTime": { "type": "string", "description": "The end time for a recurring offer in HH:mm format." },
         "isActive": { "type": "boolean", "description": "Indicates if the offer is currently active." },
         "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when the offer was created." }
       },

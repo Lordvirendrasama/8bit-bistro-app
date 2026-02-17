@@ -43,6 +43,8 @@ export type MediaConfig = {
     playlistId: string;
 };
 
+export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+
 export type Offer = {
   id: string;
   title: string;
@@ -52,6 +54,9 @@ export type Offer = {
   triggerType: 'random_drop' | 'highscore' | 'scheduled' | 'streak';
   startTime?: Timestamp;
   endTime?: Timestamp;
+  daysOfWeek?: DayOfWeek[];
+  recurringStartTime?: string; // "HH:mm"
+  recurringEndTime?: string; // "HH:mm"
   isActive: boolean;
   createdAt: Timestamp;
 };
