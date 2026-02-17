@@ -6,7 +6,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
 } from "firebase/auth";
-import { useAuth as useFirebaseAuth } from "@/firebase";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useAuth as useFirebaseAuth, useFirestore } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import {
   Card,
@@ -23,6 +24,7 @@ import { Loader2 } from "lucide-react";
 export default function AdminLoginPage() {
   const router = useRouter();
   const auth = useFirebaseAuth();
+  const firestore = useFirestore();
   const { toast } = useToast();
   const [email, setEmail] = useState("admin@example.com");
   const [password, setPassword] = useState("password");
@@ -60,7 +62,15 @@ export default function AdminLoginPage() {
       if (signInError.code === 'auth/invalid-credential' || signInError.code === 'auth/user-not-found') {
         // ...try to create the user instead.
         try {
-          await createUserWithEmailAndPassword(auth, email, password);
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+
+          // FIX: Create the admin document in Firestore to grant permissions
+          const adminDocRef = doc(firestore, "admins", userCredential.user.uid);
+          await setDoc(adminDocRef, {
+            email: userCredential.user.email,
+            createdAt: serverTimestamp()
+          });
+
           toast({
             title: "Admin Account Created",
             description: "Successfully created your account and logged you in.",
