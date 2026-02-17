@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 export default function Logo({ className }: { className?: string }) {
   return (
     <Image
-      src="/THE%208%20BIT%20BISTRO.png"
+      src="/Logo.png"
       alt="The 8Bit Bistro Logo"
       width={1000}
       height={250}
