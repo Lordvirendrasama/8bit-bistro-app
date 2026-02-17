@@ -25,7 +25,7 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const auth = useFirebaseAuth();
   const { toast } = useToast();
-  const [email, setEmail] = useState("admin@example.com");
+  const [email, setEmail] = useState("admin@8bit.com");
   const [password, setPassword] = useState("password");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -98,7 +98,7 @@ export default function AdminLoginPage() {
         <CardHeader>
           <CardTitle className="font-headline text-3xl">Admin Login</CardTitle>
           <CardDescription>
-            Log in with an existing admin account. Admin privileges must be granted manually in the Firebase Console.
+            Log in to the admin dashboard. The admin email must be 'admin@8bit.com'.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -108,7 +108,7 @@ export default function AdminLoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@example.com"
+                placeholder="admin@8bit.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
