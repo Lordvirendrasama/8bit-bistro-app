@@ -81,21 +81,13 @@ const AddPlayerModal = ({
     const formData = new FormData(e.currentTarget);
     const name = (formData.get("name") as string)?.trim();
     const instagram = (formData.get("instagram") as string)?.trim();
-    const groupSize = Number(formData.get("groupSize") as string);
+    const groupSize = 1;
 
     if (!name) {
       toast({
         variant: "destructive",
         title: "Registration Failed",
         description: "Player name is required.",
-      });
-      return;
-    }
-    if (isNaN(groupSize) || groupSize <= 0) {
-      toast({
-        variant: "destructive",
-        title: "Registration Failed",
-        description: "Please enter a valid group size.",
       });
       return;
     }
@@ -197,18 +189,6 @@ const AddPlayerModal = ({
               id="instagram"
               name="instagram"
               placeholder="@playerhandle"
-              disabled={isAddingPlayer}
-            />
-          </div>
-          <div>
-            <Label htmlFor="groupSize">Group Size</Label>
-            <Input
-              id="groupSize"
-              name="groupSize"
-              type="number"
-              defaultValue="1"
-              min="1"
-              required
               disabled={isAddingPlayer}
             />
           </div>

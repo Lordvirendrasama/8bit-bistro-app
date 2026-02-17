@@ -124,7 +124,6 @@ export default function AdminUsersPage() {
 
   const [editedName, setEditedName] = useState("");
   const [editedInstagram, setEditedInstagram] = useState("");
-  const [editedGroupSize, setEditedGroupSize] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const sortedPlayers = useMemo(() => {
@@ -195,7 +194,6 @@ export default function AdminUsersPage() {
     setPlayerToEdit(player);
     setEditedName(player.name);
     setEditedInstagram(player.instagram || "");
-    setEditedGroupSize(String(player.groupSize));
     setEditModalOpen(true);
   };
 
@@ -206,21 +204,10 @@ export default function AdminUsersPage() {
     }
     if (!playerToEdit || isSubmitting || !firestore) return;
     
-    const groupSize = parseInt(editedGroupSize, 10);
-    if (isNaN(groupSize) || groupSize <= 0) {
-      toast({
-        title: "Invalid Group Size",
-        description: "Please enter a valid positive number for group size.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     setIsSubmitting(true);
     const updatedData = {
         name: editedName.trim(),
         instagram: editedInstagram.trim(),
-        groupSize,
     };
     const playerDocRef = doc(firestore, "players", playerToEdit.id);
     updateDoc(playerDocRef, updatedData)
@@ -400,7 +387,6 @@ export default function AdminUsersPage() {
                     </TableHead>
                     <SortableHeader label="Player" sortKey="name" />
                     <SortableHeader label="Instagram" sortKey="instagram" />
-                    <TableHead>Group Size</TableHead>
                     <TableHead>Current Event</TableHead>
                     <SortableHeader label="Registered" sortKey="createdAt" />
                     <TableHead className="text-right">Actions</TableHead>
@@ -442,12 +428,6 @@ export default function AdminUsersPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                          <Badge variant="outline" className="flex items-center gap-1.5 w-fit">
-                              <Users className="h-4 w-4" />
-                              {player.groupSize}
-                          </Badge>
-                      </TableCell>
-                      <TableCell>
                         {player.eventName ? <Badge variant="secondary">{player.eventName}</Badge> : <span className="text-muted-foreground/50">None</span>}
                       </TableCell>
                       <TableCell>
@@ -484,7 +464,7 @@ export default function AdminUsersPage() {
                   ))}
                   {sortedPlayers.length === 0 && (
                       <TableRow>
-                          <TableCell colSpan={7} className="text-center text-muted-foreground h-24">
+                          <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
                               No players have registered yet.
                           </TableCell>
                       </TableRow>
@@ -526,17 +506,6 @@ export default function AdminUsersPage() {
                 value={editedInstagram}
                 placeholder="@handle"
                 onChange={(e) => setEditedInstagram(e.target.value)}
-                disabled={isSubmitting}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-groupSize">Group Size</Label>
-              <Input
-                id="edit-groupSize"
-                type="number"
-                min="1"
-                value={editedGroupSize}
-                onChange={(e) => setEditedGroupSize(e.target.value)}
                 disabled={isSubmitting}
               />
             </div>
@@ -588,4 +557,3 @@ export default function AdminUsersPage() {
     </>
   );
 }
-
