@@ -5,7 +5,6 @@ import { useState, useEffect, useCallback } from "react";
 import {
   collection,
   query,
-  orderBy,
   addDoc,
   deleteDoc,
   doc,
@@ -91,9 +90,17 @@ export default function AdminEventsPage() {
     if (!firestore) return;
     setLoading(true);
     try {
-        const eventsQuery = query(collection(firestore, "events"), orderBy("createdAt", "desc"));
+        const eventsQuery = query(collection(firestore, "events"));
         const querySnapshot = await getDocs(eventsQuery);
         const eventsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Event));
+        
+        // Sort on the client
+        eventsData.sort((a, b) => {
+            const dateA = a.createdAt?.toDate()?.getTime() || 0;
+            const dateB = b.createdAt?.toDate()?.getTime() || 0;
+            return dateB - dateA; // Descending order
+        });
+
         setEvents(eventsData);
     } catch (error) {
         console.error("Error fetching events:", error);
