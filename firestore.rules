@@ -58,5 +58,13 @@ service cloud.firestore {
       allow write: if isAdmin();
       allow read, create: if request.auth != null;
     }
+
+    // Offers Collection:
+    // - Admins are granted full read and write access.
+    // - Other authenticated users are granted read-only access for the display.
+    match /offers/{offerId} {
+      allow write: if isAdmin();
+      allow read: if request.auth != null;
+    }
   }
 }

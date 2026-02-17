@@ -1,3 +1,4 @@
+
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -13,6 +14,7 @@ export default function AdminHeader() {
     { href: '/admin/users', label: 'Users' },
     { href: '/admin/games', label: 'Games' },
     { href: '/admin/events', label: 'Events' },
+    { href: '/admin/offers', label: 'Offers' },
     { href: '/admin/media', label: 'Media' },
   ];
 

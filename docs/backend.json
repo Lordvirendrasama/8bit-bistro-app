@@ -145,6 +145,25 @@
         "level",
         "submittedAt"
       ]
+    },
+    "Offer": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Offer",
+      "type": "object",
+      "description": "Represents a promotional offer or reward in the gaming café.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the Offer entity." },
+        "title": { "type": "string", "description": "The title of the offer." },
+        "description": { "type": "string", "description": "A short description of the offer." },
+        "rewardType": { "type": "string", "enum": ["food", "discount", "bonus_time"], "description": "The category of the reward." },
+        "value": { "type": "string", "description": "The value of the reward (e.g., 'Free Drink', '10%', '15 mins')." },
+        "triggerType": { "type": "string", "enum": ["random_drop", "highscore", "scheduled", "streak"], "description": "The condition that triggers the offer." },
+        "startTime": { "type": "string", "format": "date-time", "description": "The time the offer becomes valid." },
+        "endTime": { "type": "string", "format": "date-time", "description": "The time the offer expires." },
+        "isActive": { "type": "boolean", "description": "Indicates if the offer is currently active." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when the offer was created." }
+      },
+      "required": ["id", "title", "description", "rewardType", "value", "triggerType", "isActive", "createdAt"]
     }
   },
   "auth": {
@@ -219,6 +238,22 @@
           ]
         }
       },
+       {
+        "path": "/offers/{offerId}",
+        "definition": {
+          "entityName": "Offer",
+          "schema": {
+            "$ref": "#/backend/entities/Offer"
+          },
+          "description": "Stores promotional offers and rewards. Publicly readable for the display screen, but only writable by admins.",
+          "params": [
+            {
+              "name": "offerId",
+              "description": "The unique identifier for a specific offer."
+            }
+          ]
+        }
+      },
       {
         "path": "/admins/{adminId}",
         "definition": {
@@ -236,6 +271,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to be secure, scalable, and highly debuggable by strictly adhering to the core design principles of Authorization Independence, Structural Segregation, and Access Modeling. The structure leverages denormalization to eliminate `get()` calls in security rules, enabling atomic operations and simplifying rule logic.\n\n**Authorization Independence (CRITICAL):**\nThis is achieved primarily through strategic denormalization. For the `scoreSubmissions` collection, critical authorization and display data from parent entities (`Player`, `Game`, and `Event`) are copied directly into each `scoreSubmission` document. Specifically, `playerName`, `playerInstagramHandle`, `gameName`, and `eventName` are included in every `scoreSubmission`. This means that security rules, particularly for `read` operations on the leaderboard, do not need to fetch related documents using `get()`. Authorization can be determined solely by inspecting the `resource.data` of the `scoreSubmission` document itself. This significantly reduces rule complexity, improves performance, and prevents rule-based deadlocks.\n\n**QAPs (Rules are not Filters):**\nThe structure ensures Query-Accessible Paths (QAPs) for efficient and secure `list` operations:\n1.  **Event-Filtered Leaderboard:** The admin dashboard can filter scores by event by querying `/scoreSubmissions` with `where('eventId', '==', selectedEventId)`. This query is efficient and secure.\n2.  **Player-Specific Submissions:** Players can securely `list` their own `scoreSubmissions` by querying `where('playerId', '==', request.auth.uid)`.\n3.  **Admin Access:** Admins have broad `list` access across all collections by checking their `uid` against the `/admins/{adminId}` collection.\n\n**Structural Segregation:**\nEach collection is designed with a homogeneous security posture:\n*   `/players/{playerId}`: Private, owned by the respective `playerId`.\n*   `/games/{gameId}`: Publicly readable for game selection; writable only by admins.\n*   `/events/{eventId}`: Publicly readable for event selection; writable only by admins.\n*   `/scoreSubmissions/{scoreSubmissionId}`: Publicly readable for approved scores, owner-readable for pending scores, admin-writable for moderation.\n*   `/admins/{adminId}`: Marker for admin UIDs, minimal data, existence-based authorization.\nThis segregation simplifies security rules dramatically.\n\n**Access Modeling:**\n*   **Private Data:** `/players/{playerId}` exemplifies path-based ownership.\n*   **Global Roles (DBAC):** `/admins/{adminId}` uses the 'existence over content' pattern for admin privileges."
+    "reasoning": "The Firestore data structure is designed to be secure, scalable, and highly debuggable by strictly adhering to the core design principles of Authorization Independence, Structural Segregation, and Access Modeling. The structure leverages denormalization to eliminate `get()` calls in security rules, enabling atomic operations and simplifying rule logic.\n\n**Authorization Independence (CRITICAL):**\nThis is achieved primarily through strategic denormalization. For the `scoreSubmissions` collection, critical authorization and display data from parent entities (`Player`, `Game`, and `Event`) are copied directly into each `scoreSubmission` document. Specifically, `playerName`, `playerInstagramHandle`, `gameName`, and `eventName` are included in every `scoreSubmission`. This means that security rules, particularly for `read` operations on the leaderboard, do not need to fetch related documents using `get()`. Authorization can be determined solely by inspecting the `resource.data` of the `scoreSubmission` document itself. This significantly reduces rule complexity, improves performance, and prevents rule-based deadlocks.\n\n**QAPs (Rules are not Filters):**\nThe structure ensures Query-Accessible Paths (QAPs) for efficient and secure `list` operations:\n1.  **Event-Filtered Leaderboard:** The admin dashboard can filter scores by event by querying `/scoreSubmissions` with `where('eventId', '==', selectedEventId)`. This query is efficient and secure.\n2.  **Player-Specific Submissions:** Players can securely `list` their own `scoreSubmissions` by querying `where('playerId', '==', request.auth.uid)`.\n3.  **Admin Access:** Admins have broad `list` access across all collections by checking their `uid` against the `/admins/{adminId}` collection.\n\n**Structural Segregation:**\nEach collection is designed with a homogeneous security posture:\n*   `/players/{playerId}`: Private, owned by the respective `playerId`.\n*   `/games/{gameId}`: Publicly readable for game selection; writable only by admins.\n*   `/events/{eventId}`: Publicly readable for event selection; writable only by admins.\n*   `/scoreSubmissions/{scoreSubmissionId}`: Publicly readable for approved scores, owner-readable for pending scores, admin-writable for moderation.\n*   `/offers/{offerId}`: Publicly readable, admin-writable.\n*   `/admins/{adminId}`: Marker for admin UIDs, minimal data, existence-based authorization.\nThis segregation simplifies security rules dramatically.\n\n**Access Modeling:**\n*   **Private Data:** `/players/{playerId}` exemplifies path-based ownership.\n*   **Global Roles (DBAC):** `/admins/{adminId}` uses the 'existence over content' pattern for admin privileges."
   }
 }

@@ -42,3 +42,16 @@ export type MediaConfig = {
     id: string;
     playlistId: string;
 };
+
+export type Offer = {
+  id: string;
+  title: string;
+  description: string;
+  rewardType: 'food' | 'discount' | 'bonus_time';
+  value: string;
+  triggerType: 'random_drop' | 'highscore' | 'scheduled' | 'streak';
+  startTime?: Timestamp;
+  endTime?: Timestamp;
+  isActive: boolean;
+  createdAt: Timestamp;
+};
