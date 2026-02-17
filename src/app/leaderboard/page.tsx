@@ -1,17 +1,16 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   collection,
   query,
   orderBy,
-  where,
 } from "firebase/firestore";
 
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import type { Score, Game } from "@/types";
+import type { Score, Game, Event } from "@/types";
 import { Loader2, Crown, ChevronDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -22,15 +21,30 @@ import {
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 
 function LeaderboardPage() {
   const firestore = useFirestore();
+  const [selectedEventId, setSelectedEventId] = useState<string>('all');
 
   const gamesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, "games"));
   }, [firestore]);
   const { data: games, isLoading: loadingGames } = useCollection<Game>(gamesQuery);
+
+  const eventsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "events"), orderBy("createdAt", "desc"));
+  }, [firestore]);
+  const { data: events, isLoading: loadingEvents } = useCollection<Event>(eventsQuery);
 
   const scoresQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -47,7 +61,11 @@ function LeaderboardPage() {
       return acc;
     }, {} as Record<string, string>);
 
-    const scoresByGame = (allScores || []).reduce((acc, score) => {
+    const filteredScores = selectedEventId === 'all'
+      ? (allScores || [])
+      : (allScores || []).filter(score => score.eventId === selectedEventId);
+
+    const scoresByGame = filteredScores.reduce((acc, score) => {
       const gameId = score.gameId;
       if (!acc[gameId]) {
         const currentGameName = gameNameMap[gameId] || score.gameName;
@@ -91,16 +109,34 @@ function LeaderboardPage() {
         rankedPlayers: rankedPlayers,
       };
     }).filter((game): game is NonNullable<typeof game> => game !== null);
-  }, [allScores, games]);
+  }, [allScores, games, selectedEventId]);
   
-  const isLoading = loadingGames || loadingScores;
+  const isLoading = loadingGames || loadingScores || loadingEvents;
 
   return (
     <div className="py-10">
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <h1 className="font-headline text-4xl sm:text-6xl text-center font-black text-primary uppercase tracking-wider mb-8">
-          Leaderboard
-        </h1>
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+            <h1 className="font-headline text-4xl sm:text-6xl text-center font-black text-primary uppercase tracking-wider">
+            Leaderboard
+            </h1>
+            <div className="w-full sm:w-auto min-w-[200px]">
+                <Select onValueChange={setSelectedEventId} defaultValue="all">
+                    <SelectTrigger>
+                        <SelectValue placeholder="Filter by event" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Events</SelectItem>
+                        {events?.map((event) => (
+                            <SelectItem key={event.id} value={event.id}>
+                                {event.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+        </div>
+
 
         {isLoading && (
           <div className="flex justify-center items-center p-10">
@@ -110,7 +146,7 @@ function LeaderboardPage() {
 
         {!isLoading && rankedGames.length === 0 && (
           <p className="text-center text-foreground text-xl mt-8">
-            No scores have been submitted yet.
+            No scores have been submitted for this event yet.
           </p>
         )}
 
