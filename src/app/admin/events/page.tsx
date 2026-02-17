@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { useFirestore, FirestorePermissionError, errorEmitter } from "@/firebase";
+import { useAuth } from "@/hooks/use-auth";
 import type { Event } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -70,6 +71,7 @@ import { Label } from "@/components/ui/label";
 
 export default function AdminEventsPage() {
   const firestore = useFirestore();
+  const { isAdmin } = useAuth();
   const { toast } = useToast();
   
   const [events, setEvents] = useState<Event[]>([]);
@@ -122,6 +124,10 @@ export default function AdminEventsPage() {
 
   const handleAddEvent = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) {
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'You do not have permission to add events.' });
+      return;
+    }
     if (!newEventName.trim() || isSubmitting || !firestore) return;
 
     setIsSubmitting(true);
@@ -160,6 +166,10 @@ export default function AdminEventsPage() {
   };
 
   const handleDeleteEvent = () => {
+    if (!isAdmin) {
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'You do not have permission to delete events.' });
+      return;
+    }
     if (!firestore || !eventToDelete) return;
     
     const eventDocRef = doc(firestore, "events", eventToDelete.id);
@@ -181,6 +191,10 @@ export default function AdminEventsPage() {
   };
 
   const handleStatusToggle = (eventId: string, currentStatus: boolean) => {
+    if (!isAdmin) {
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'You do not have permission to update events.' });
+      return;
+    }
     if (!firestore) return;
     
     const eventDocRef = doc(firestore, "events", eventId);
@@ -210,6 +224,10 @@ export default function AdminEventsPage() {
   };
 
   const handleEditEvent = () => {
+    if (!isAdmin) {
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'You do not have permission to edit events.' });
+      return;
+    }
     if (!firestore || !selectedEvent || !editedEventName.trim() || isEditing) return;
 
     setIsEditing(true);

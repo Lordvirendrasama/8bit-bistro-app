@@ -24,6 +24,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 
 import { useFirestore, useCollection, useMemoFirebase, FirestorePermissionError, errorEmitter } from "@/firebase";
+import { useAuth } from "@/hooks/use-auth";
 import type { Score, Game, Event } from "@/types";
 
 import {
@@ -92,6 +93,7 @@ const TimeAgo = ({ timestamp }: { timestamp?: { toDate: () => Date } }) => {
 
 export default function AdminMainPage() {
   const firestore = useFirestore();
+  const { isAdmin } = useAuth();
   const { games, loading: gamesLoading } = useGames();
   const [selectedEventId, setSelectedEventId] = useState<string | "all">("all");
   
@@ -235,6 +237,10 @@ export default function AdminMainPage() {
   };
 
   const handleEditSubmit = () => {
+    if (!isAdmin) {
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'You do not have permission to edit scores.' });
+      return;
+    }
     if (!selectedScore || isSubmitting || !firestore) return;
 
     const scoreValue = parseInt(newScoreValue, 10);
@@ -275,6 +281,10 @@ export default function AdminMainPage() {
   };
 
   const handleDeleteSubmit = () => {
+    if (!isAdmin) {
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'You do not have permission to delete scores.' });
+      return;
+    }
     if (!selectedScore || isSubmitting || !firestore) return;
     setIsSubmitting(true);
     

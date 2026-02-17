@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { useFirestore, FirestorePermissionError, errorEmitter, useCollection, useMemoFirebase } from "@/firebase";
+import { useAuth } from "@/hooks/use-auth";
 import type { Game } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -69,6 +70,7 @@ import { Label } from "@/components/ui/label";
 
 export default function AdminGamesPage() {
   const firestore = useFirestore();
+  const { isAdmin } = useAuth();
   const { toast } = useToast();
   
   const gamesQuery = useMemoFirebase(() => {
@@ -91,6 +93,10 @@ export default function AdminGamesPage() {
 
   const handleAddGame = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) {
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'You do not have permission to add games.' });
+      return;
+    }
     if (!newGameName.trim() || isSubmitting || !firestore) return;
 
     setIsSubmitting(true);
@@ -127,6 +133,10 @@ export default function AdminGamesPage() {
   };
 
   const handleDeleteGame = () => {
+    if (!isAdmin) {
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'You do not have permission to delete games.' });
+      return;
+    }
     if (!firestore || !gameToDelete) return;
     
     const gameDocRef = doc(firestore, "games", gameToDelete.id);
@@ -147,6 +157,10 @@ export default function AdminGamesPage() {
   };
 
   const handleStatusToggle = (gameId: string, currentStatus: boolean) => {
+    if (!isAdmin) {
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'You do not have permission to update games.' });
+      return;
+    }
     if (!firestore) return;
     
     const gameDocRef = doc(firestore, "games", gameId);
@@ -175,6 +189,10 @@ export default function AdminGamesPage() {
   };
 
   const handleEditGame = () => {
+    if (!isAdmin) {
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'You do not have permission to edit games.' });
+      return;
+    }
     if (!firestore || !selectedGame || !editedGameName.trim() || isEditing) return;
 
     setIsEditing(true);

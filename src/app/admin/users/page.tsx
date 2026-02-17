@@ -7,6 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Loader2, ChevronDown, ChevronUp, Instagram, Users, MoreVertical, Edit, Trash2 } from "lucide-react";
 
 import { useFirestore, useCollection, useMemoFirebase, FirestorePermissionError, errorEmitter } from "@/firebase";
+import { useAuth } from "@/hooks/use-auth";
 import type { Player } from "@/types";
 import {
   Card,
@@ -56,6 +57,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function AdminUsersPage() {
   const firestore = useFirestore();
+  const { isAdmin } = useAuth();
   const { toast } = useToast();
   
   const playersQuery = useMemoFirebase(() => {
@@ -154,6 +156,10 @@ export default function AdminUsersPage() {
   };
 
   const handleEditSubmit = () => {
+    if (!isAdmin) {
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'You do not have permission to edit players.' });
+      return;
+    }
     if (!playerToEdit || isSubmitting || !firestore) return;
     
     const groupSize = parseInt(editedGroupSize, 10);
@@ -197,6 +203,10 @@ export default function AdminUsersPage() {
   };
 
   const handleDeleteSubmit = () => {
+    if (!isAdmin) {
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'You do not have permission to delete players.' });
+      return;
+    }
     if (!playerToDelete || !firestore) return;
     setIsSubmitting(true);
     
