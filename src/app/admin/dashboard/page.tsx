@@ -114,17 +114,18 @@ export default function AdminMainPage() {
         setEvents(eventsData);
       } catch (error) {
           console.error("Error fetching events:", error);
-          const contextualError = new FirestorePermissionError({
-              path: 'events',
-              operation: 'list',
+          toast({
+            variant: 'destructive',
+            title: 'Failed to load events',
+            description: 'Could not fetch events due to a permission error. Please check Firestore rules.',
           });
-          errorEmitter.emit('permission-error', contextualError);
+          setEvents([]); // Prevent crash by setting to empty array
       } finally {
         setEventsLoading(false);
       }
     };
     fetchEvents();
-  }, [firestore]);
+  }, [firestore, toast]);
 
 
   const scoresQuery = useMemoFirebase(() => {
