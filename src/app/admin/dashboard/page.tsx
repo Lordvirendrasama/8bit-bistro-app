@@ -9,6 +9,7 @@ import {
   updateDoc,
   deleteDoc,
   orderBy,
+  where,
 } from "firebase/firestore";
 import Link from "next/link";
 import {
@@ -60,6 +61,15 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useGames } from "@/lib/hooks/use-games";
+import { useEvents } from "@/lib/hooks/use-events";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 
 // Helper component to avoid hydration mismatch error with date formatting.
 const TimeAgo = ({ timestamp }: { timestamp?: { toDate: () => Date } }) => {
@@ -84,11 +94,20 @@ const TimeAgo = ({ timestamp }: { timestamp?: { toDate: () => Date } }) => {
 export default function AdminMainPage() {
   const firestore = useFirestore();
   const { games, loading: gamesLoading } = useGames();
+  const { events, loading: eventsLoading } = useEvents();
+  const [selectedEventId, setSelectedEventId] = useState<string | "all">("all");
   
   const scoresQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, "scoreSubmissions"), orderBy("submittedAt", "desc"));
-  }, [firestore]);
+    let scoresCollectionRef = collection(firestore, "scoreSubmissions");
+    let q;
+    if (selectedEventId === 'all') {
+        q = query(scoresCollectionRef, orderBy("submittedAt", "desc"));
+    } else {
+        q = query(scoresCollectionRef, where("eventId", "==", selectedEventId), orderBy("submittedAt", "desc"));
+    }
+    return q;
+  }, [firestore, selectedEventId]);
 
   const { data: scores, isLoading: loadingScores } = useCollection<Score>(scoresQuery);
 
@@ -122,12 +141,12 @@ export default function AdminMainPage() {
           return 0;
         }
 
-        if (sortConfig.key === "gameName") {
-          const aGameName = a.gameName ?? "";
-          const bGameName = b.gameName ?? "";
-          if (aGameName < bGameName)
+        if (sortConfig.key === "gameName" || sortConfig.key === "eventName") {
+          const aName = a[sortConfig.key] ?? "";
+          const bName = b[sortConfig.key] ?? "";
+          if (aName < bName)
             return sortConfig.direction === "ascending" ? -1 : 1;
-          if (aGameName > bGameName)
+          if (aName > bName)
             return sortConfig.direction === "ascending" ? 1 : -1;
           return 0;
         }
@@ -249,7 +268,7 @@ export default function AdminMainPage() {
   };
 
 
-  if (loadingScores || gamesLoading) {
+  if (loadingScores || gamesLoading || eventsLoading) {
     return (
       <div className="p-8 flex justify-center items-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -273,11 +292,26 @@ export default function AdminMainPage() {
                   A total of {scores?.length ?? 0} scores submitted.
                 </CardDescription>
               </div>
-              <Button asChild>
-                <Link href="/admin/games">
-                  <PlusCircle className="mr-2 h-4 w-4" /> Manage Games
-                </Link>
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Select onValueChange={setSelectedEventId} defaultValue="all">
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                        <SelectValue placeholder="Filter by event" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Events</SelectItem>
+                        {events?.map((event) => (
+                            <SelectItem key={event.id} value={event.id}>
+                                {event.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Button asChild>
+                  <Link href="/admin/games">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Manage Games
+                  </Link>
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -286,6 +320,7 @@ export default function AdminMainPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Player</TableHead>
+                    <SortableHeader label="Event" sortKey="eventName" />
                     <SortableHeader label="Game" sortKey="gameName" />
                     <SortableHeader label="Score" sortKey="scoreValue" />
                     <TableHead>Level</TableHead>
@@ -315,6 +350,7 @@ export default function AdminMainPage() {
                           </div>
                         </div>
                       </TableCell>
+                      <TableCell>{score.eventName}</TableCell>
                       <TableCell>{score.gameName}</TableCell>
                       <TableCell className="font-mono">
                         {score.scoreValue.toLocaleString()}

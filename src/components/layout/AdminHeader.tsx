@@ -13,6 +13,7 @@ export default function AdminHeader() {
     { href: '/admin/dashboard', label: 'Main' },
     { href: '/admin/users', label: 'Users' },
     { href: '/admin/games', label: 'Games' },
+    { href: '/admin/events', label: 'Events' },
   ];
 
   return (

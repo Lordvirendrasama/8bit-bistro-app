@@ -14,10 +14,19 @@ export type Game = {
   isActive: boolean;
 };
 
+export type Event = {
+  id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: Timestamp;
+};
+
 export type Score = {
   id:string;
   playerId: string;
   gameId: string;
+  eventId: string;
+  eventName: string;
   playerName: string;
   playerInstagram: string;
   gameName: string;

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, FormEvent, ChangeEvent, useEffect, useMemo } from "react";
@@ -39,6 +40,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useGames } from "@/lib/hooks/use-games";
 import { usePlayers } from "@/lib/hooks/use-players";
+import { useEvents } from "@/lib/hooks/use-events";
 import type { Player } from "@/types";
 import {
   Popover,
@@ -237,12 +239,14 @@ function DashboardPage() {
   const firestore = useFirestore();
   const { games, loading: gamesLoading } = useGames();
   const { players, loading: playersLoading } = usePlayers();
+  const { events, loading: eventsLoading } = useEvents({ activeOnly: true });
   const { toast } = useToast();
   const router = useRouter();
 
   const formRef = useRef<HTMLFormElement>(null);
 
   const [selectedGameId, setSelectedGameId] = useState("");
+  const [selectedEventId, setSelectedEventId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
@@ -291,21 +295,24 @@ function DashboardPage() {
     const scoreValue = formData.get("scoreValue") as string;
     const level = formData.get("level") as string;
     const game = games.find((g) => g.id === selectedGameId);
+    const selectedEvent = events.find((e) => e.id === selectedEventId);
 
     if (
       !user ||
       !firestore ||
       !selectedGameId ||
+      !selectedEventId ||
       !scoreValue ||
       !level ||
       !selectedPlayer ||
-      !game
+      !game ||
+      !selectedEvent
     ) {
       toast({
         variant: "destructive",
         title: "Submission Failed",
         description:
-          "Please select a player, game, and enter a score/level.",
+          "Please select a player, event, game, and enter a score/level.",
       });
       return;
     }
@@ -318,6 +325,8 @@ function DashboardPage() {
       playerInstagram: selectedPlayer.instagram || "",
       gameId: selectedGameId,
       gameName: game.name,
+      eventId: selectedEventId,
+      eventName: selectedEvent.name,
       scoreValue: Number(scoreValue),
       level: Number(level),
       submittedAt: serverTimestamp(),
@@ -330,6 +339,7 @@ function DashboardPage() {
         setShowSuccessModal(true);
         formRef.current?.reset();
         setSelectedGameId("");
+        setSelectedEventId("");
         setSelectedPlayer(null);
       })
       .catch((firestoreError) => {
@@ -480,6 +490,32 @@ function DashboardPage() {
                 </div>
 
                 <div>
+                  <Label>Event</Label>
+                  {eventsLoading ? (
+                    <div className="flex justify-center p-4">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {events.map((event) => (
+                        <Button
+                          key={event.id}
+                          type="button"
+                          variant={
+                            selectedEventId === event.id ? "default" : "outline"
+                          }
+                          onClick={() => setSelectedEventId(event.id)}
+                          disabled={isSubmitting}
+                          className="w-full"
+                        >
+                          {event.name}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
                   <Label>Game</Label>
                   {gamesLoading ? (
                     <div className="flex justify-center p-4">
@@ -532,7 +568,7 @@ function DashboardPage() {
                 <Button
                   type="submit"
                   className="w-full text-lg py-6"
-                  disabled={isSubmitting || !selectedGameId || !selectedPlayer}
+                  disabled={isSubmitting || !selectedGameId || !selectedPlayer || !selectedEventId}
                 >
                   {isSubmitting ? (
                     <>

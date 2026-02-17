@@ -1,0 +1,232 @@
+{
+  "entities": {
+    "Player": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Player",
+      "type": "object",
+      "description": "Represents a participant in the retro gaming event who registers and submits scores.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Player entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The participant's registered name."
+        },
+        "instagramHandle": {
+          "type": "string",
+          "description": "The participant's Instagram handle."
+        },
+        "groupSize": {
+          "type": "number",
+          "description": "The number of players in the participant's group."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the player record was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "groupSize",
+        "createdAt"
+      ]
+    },
+    "Game": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Game",
+      "type": "object",
+      "description": "Represents a retro arcade game available for score submissions at the event.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Game entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the arcade game."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Indicates if the game is currently active and available for score submissions."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "isActive"
+      ]
+    },
+    "Event": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Event",
+      "type": "object",
+      "description": "Represents a specific tournament or event session where scores are collected.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Event entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the event (e.g., 'Friday Night High Score')."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Indicates if the event is currently active and accepting score submissions."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the event was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "isActive",
+        "createdAt"
+      ]
+    },
+    "ScoreSubmission": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ScoreSubmission",
+      "type": "object",
+      "description": "Represents a participant's submitted high score for a specific game, awaiting approval.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ScoreSubmission entity."
+        },
+        "playerId": {
+          "type": "string",
+          "description": "Reference to the Player who submitted the score."
+        },
+        "gameId": {
+          "type": "string",
+          "description": "Reference to the Game for which the score was submitted."
+        },
+        "eventId": {
+          "type": "string",
+          "description": "Reference to the Event during which the score was submitted."
+        },
+        "scoreValue": {
+          "type": "number",
+          "description": "The numerical value of the high score submitted."
+        },
+        "level": {
+          "type": "number",
+          "description": "The level number the player reached."
+        },
+        "submittedAt": {
+          "type": "string",
+          "description": "Timestamp when the score was submitted.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "playerId",
+        "gameId",
+        "eventId",
+        "scoreValue",
+        "level",
+        "submittedAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "email",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/players/{playerId}",
+        "definition": {
+          "entityName": "Player",
+          "schema": {
+            "$ref": "#/backend/entities/Player"
+          },
+          "description": "Stores participant profile data, identified by their Firebase Anonymous UID. The 'name' and 'instagramHandle' fields are denormalized into 'scoreSubmissions' documents for authorization independence and efficient querying.",
+          "params": [
+            {
+              "name": "playerId",
+              "description": "The unique identifier for the Player, which corresponds to the Firebase Authentication UID (request.auth.uid)."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/games/{gameId}",
+        "definition": {
+          "entityName": "Game",
+          "schema": {
+            "$ref": "#/backend/entities/Game"
+          },
+          "description": "Stores definitions of playable retro games. This collection is publicly readable. The 'name' field is denormalized into 'scoreSubmissions' documents to avoid 'get()' calls in rules for leaderboard displays.",
+          "params": [
+            {
+              "name": "gameId",
+              "description": "The unique identifier for a specific game."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/events/{eventId}",
+        "definition": {
+          "entityName": "Event",
+          "schema": {
+            "$ref": "#/backend/entities/Event"
+          },
+          "description": "Stores definitions of tournament events. This allows for segmenting score submissions by event, enabling filtered leaderboards. The 'name' field is denormalized into 'scoreSubmissions' documents.",
+          "params": [
+            {
+              "name": "eventId",
+              "description": "The unique identifier for a specific event."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/scoreSubmissions/{scoreSubmissionId}",
+        "definition": {
+          "entityName": "ScoreSubmission",
+          "schema": {
+            "$ref": "#/backend/entities/ScoreSubmission"
+          },
+          "description": "Stores submitted high scores. To achieve Authorization Independence and enable QAPs, this document includes denormalized 'playerName', 'playerInstagramHandle' (from Player), 'gameName' (from Game), and 'eventName' (from Event). This allows rules to evaluate access and queries to fetch display data without additional document reads.",
+          "params": [
+            {
+              "name": "scoreSubmissionId",
+              "description": "The unique identifier for a score submission."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/admins/{adminId}",
+        "definition": {
+          "entityName": "Player",
+          "schema": {
+            "$ref": "#/backend/entities/Player"
+          },
+          "description": "A collection used for role-based access control. The existence of a document at '/admins/{request.auth.uid}' grants administrative privileges to the associated 'Player'. This document typically contains minimal data, serving as a marker for permission checks.",
+          "params": [
+            {
+              "name": "adminId",
+              "description": "The unique identifier (Firebase Authentication UID) of a user who has administrative privileges. This ID corresponds to a 'playerId'."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to be secure, scalable, and highly debuggable by strictly adhering to the core design principles of Authorization Independence, Structural Segregation, and Access Modeling. The structure leverages denormalization to eliminate `get()` calls in security rules, enabling atomic operations and simplifying rule logic.\n\n**Authorization Independence (CRITICAL):**\nThis is achieved primarily through strategic denormalization. For the `scoreSubmissions` collection, critical authorization and display data from parent entities (`Player`, `Game`, and `Event`) are copied directly into each `scoreSubmission` document. Specifically, `playerName`, `playerInstagramHandle`, `gameName`, and `eventName` are included in every `scoreSubmission`. This means that security rules, particularly for `read` operations on the leaderboard, do not need to fetch related documents using `get()`. Authorization can be determined solely by inspecting the `resource.data` of the `scoreSubmission` document itself. This significantly reduces rule complexity, improves performance, and prevents rule-based deadlocks.\n\n**QAPs (Rules are not Filters):**\nThe structure ensures Query-Accessible Paths (QAPs) for efficient and secure `list` operations:\n1.  **Event-Filtered Leaderboard:** The admin dashboard can filter scores by event by querying `/scoreSubmissions` with `where('eventId', '==', selectedEventId)`. This query is efficient and secure.\n2.  **Player-Specific Submissions:** Players can securely `list` their own `scoreSubmissions` by querying `where('playerId', '==', request.auth.uid)`.\n3.  **Admin Access:** Admins have broad `list` access across all collections by checking their `uid` against the `/admins/{adminId}` collection.\n\n**Structural Segregation:**\nEach collection is designed with a homogeneous security posture:\n*   `/players/{playerId}`: Private, owned by the respective `playerId`.\n*   `/games/{gameId}`: Publicly readable for game selection; writable only by admins.\n*   `/events/{eventId}`: Publicly readable for event selection; writable only by admins.\n*   `/scoreSubmissions/{scoreSubmissionId}`: Publicly readable for approved scores, owner-readable for pending scores, admin-writable for moderation.\n*   `/admins/{adminId}`: Marker for admin UIDs, minimal data, existence-based authorization.\nThis segregation simplifies security rules dramatically.\n\n**Access Modeling:**\n*   **Private Data:** `/players/{playerId}` exemplifies path-based ownership.\n*   **Global Roles (DBAC):** `/admins/{adminId}` uses the 'existence over content' pattern for admin privileges."
+  }
+}
