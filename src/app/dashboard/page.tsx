@@ -253,9 +253,11 @@ function DashboardPage() {
     const fetchEvents = async () => {
       setEventsLoading(true);
       try {
-        const eventsQuery = query(collection(firestore, "events"), where("isActive", "==", true), orderBy("createdAt", 'desc'));
+        const eventsQuery = query(collection(firestore, "events"), orderBy("createdAt", 'desc'));
         const querySnapshot = await getDocs(eventsQuery);
-        const eventsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Event));
+        const eventsData = querySnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() } as Event))
+            .filter(event => event.isActive);
         setEvents(eventsData);
       } catch (error) {
           console.error("Error fetching events:", error);
@@ -651,5 +653,3 @@ export default function GuardedDashboardPage() {
     </AuthGuard>
   );
 }
-
-    
