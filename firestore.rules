@@ -13,55 +13,47 @@ service cloud.firestore {
     // --- Security Rules for Collections ---
 
     // Admins Collection:
-    // This collection is no longer used for authorization.
-    // Rules are set to deny all access to prevent accidental usage.
     match /admins/{userId} {
       allow read, write: if false;
     }
     
     // Players Collection:
-    // - Any authenticated user can create a player (e.g., at the tournament desk).
-    // - Only admins can read the full list of players, or update/delete individual players.
     match /players/{playerId} {
       allow create: if request.auth != null;
       allow read, update, delete: if isAdmin();
     }
 
     // Games Collection:
-    // - Any authenticated user can read the list of games (e.g., for the score submission form).
-    // - Only admins can create, update, or delete games.
     match /games/{gameId} {
       allow read: if request.auth != null;
       allow write: if isAdmin();
     }
     
     // Events Collection:
-    // - Admins are granted full read and write access.
-    // - Other authenticated users are granted read-only access.
     match /events/{eventId} {
       allow write: if isAdmin();
       allow read: if request.auth != null;
     }
 
     // Config Collection:
-    // - Admins can read and write all configuration documents.
-    // - All authenticated users can read configuration.
     match /config/{docId} {
         allow read: if request.auth != null;
         allow write: if isAdmin();
     }
 
     // Score Submissions Collection:
-    // - Admins get full read/write access for moderation.
-    // - Any authenticated user can also create scores and read them for the public leaderboard.
     match /scoreSubmissions/{scoreSubmissionId} {
       allow write: if isAdmin();
       allow read, create: if request.auth != null;
     }
 
+    // FIFA Matches Collection:
+    match /fifaMatches/{matchId} {
+      allow read, create: if request.auth != null;
+      allow update, delete: if isAdmin();
+    }
+
     // Offers Collection:
-    // - Admins are granted full read and write access.
-    // - Other authenticated users are granted read-only access for the display.
     match /offers/{offerId} {
       allow write: if isAdmin();
       allow read: if request.auth != null;

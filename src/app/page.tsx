@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -9,6 +10,7 @@ import PixelLeaderboardIcon from "@/components/icons/PixelLeaderboardIcon";
 import PixelVideoIcon from "@/components/icons/PixelVideoIcon";
 import PixelPokemonIcon from "@/components/icons/PixelPokemonIcon";
 import PixelKeyIcon from "@/components/icons/PixelKeyIcon";
+import PixelFifaIcon from "@/components/icons/PixelFifaIcon";
 import { cn } from "@/lib/utils";
 
 function HomePageContent() {
@@ -24,6 +26,12 @@ function HomePageContent() {
       title: "Live Leaderboard",
       description: "See who's at the top of their game.",
       icon: <PixelLeaderboardIcon className="w-16 h-16 mb-4" />,
+    },
+    {
+      href: "/fifa-tracker",
+      title: "FIFA Match Tracker",
+      description: "Record FIFA matches and track player stats.",
+      icon: <PixelFifaIcon className="w-16 h-16 mb-4" />,
     },
     {
       href: "/media",

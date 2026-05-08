@@ -38,6 +38,19 @@ export type Score = {
   submittedAt: Timestamp;
 };
 
+export type FifaMatch = {
+  id: string;
+  player1Id: string;
+  player1Name: string;
+  player1Team: string;
+  player1Score: number;
+  player2Id: string;
+  player2Name: string;
+  player2Team: string;
+  player2Score: number;
+  timestamp: Timestamp;
+};
+
 export type MediaConfig = {
     id: string;
     playlistId: string;
