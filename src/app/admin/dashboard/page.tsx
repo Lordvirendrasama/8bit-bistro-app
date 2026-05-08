@@ -518,8 +518,7 @@ export default function AdminMainPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
                             <DropdownMenuItem
-                              onSelect={(e) => {
-                                e.preventDefault();
+                              onSelect={() => {
                                 openEditModal(score);
                               }}
                             >
@@ -529,8 +528,7 @@ export default function AdminMainPage() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive"
-                              onSelect={(e) => {
-                                e.preventDefault();
+                              onSelect={() => {
                                 openDeleteModal(score);
                               }}
                             >

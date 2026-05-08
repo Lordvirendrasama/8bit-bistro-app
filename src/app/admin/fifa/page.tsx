@@ -280,16 +280,14 @@ export default function AdminFifaPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={(e) => {
-                            e.preventDefault();
+                          <DropdownMenuItem onSelect={() => {
                             setEditingMatch(match);
                             setEditScore1(String(match.player1Score));
                             setEditScore2(String(match.player2Score));
                           }}>
                             <Edit className="mr-2 h-4 w-4" /> Edit Score
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onSelect={(e) => {
-                            e.preventDefault();
+                          <DropdownMenuItem className="text-destructive" onSelect={() => {
                             setMatchToDelete(match);
                           }}>
                             <Trash2 className="mr-2 h-4 w-4" /> Delete Match
@@ -366,10 +364,7 @@ export default function AdminFifaPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => {
-                e.preventDefault();
-                handleDeleteMatch();
-            }} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
+            <AlertDialogAction onClick={handleDeleteMatch} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
               {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete Record"}
             </AlertDialogAction>
           </AlertDialogFooter>
