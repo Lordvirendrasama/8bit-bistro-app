@@ -2,8 +2,9 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useFirestore, useCollection, useMemoFirebase, useAuth } from "@/firebase";
-import { collection, query, orderBy, addDoc, serverTimestamp, updateDoc, doc, limit, where } from "firebase/firestore";
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { useAuth } from "@/hooks/use-auth";
+import { collection, query, orderBy, addDoc, serverTimestamp, updateDoc, doc, limit, deleteDoc } from "firebase/firestore";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import { usePlayers } from "@/lib/hooks/use-players";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Loader2, Trophy, History, UserPlus, PlayCircle, StopCircle, Calendar } from "lucide-react";
+import { Loader2, Trophy, History, UserPlus, PlayCircle, StopCircle, Calendar, MoreVertical, Edit, Trash2 } from "lucide-react";
 import type { Player, FifaMatch, FifaSession } from "@/types";
 import { format, formatDistanceToNow } from "date-fns";
 import {
@@ -26,10 +27,16 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 function FifaTrackerPage() {
   const firestore = useFirestore();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { players, loading: playersLoading } = usePlayers();
   const { toast } = useToast();
 
@@ -43,6 +50,12 @@ function FifaTrackerPage() {
   const [player1Score, setPlayer1Score] = useState("");
   const [player2Score, setPlayer2Score] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Edit Match State
+  const [editingMatch, setEditingMatch] = useState<FifaMatch | null>(null);
+  const [editScore1, setEditScore1] = useState("");
+  const [editScore2, setEditScore2] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // New Player Form State
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
@@ -174,6 +187,38 @@ function FifaTrackerPage() {
       toast({ variant: "destructive", title: "Error", description: "Could not save match." });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteMatch = async (matchId: string) => {
+    if (!firestore || !isAdmin) return;
+    if (!confirm("Are you sure you want to delete this match?")) return;
+
+    try {
+      await deleteDoc(doc(firestore, "fifaMatches", matchId));
+      toast({ title: "Match Deleted" });
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: "Failed to delete match." });
+    }
+  };
+
+  const handleUpdateMatch = async () => {
+    if (!firestore || !editingMatch || !isAdmin) return;
+
+    setIsUpdating(true);
+    try {
+      await updateDoc(doc(firestore, "fifaMatches", editingMatch.id), {
+        player1Score: Number(editScore1),
+        player2Score: Number(editScore2),
+      });
+      toast({ title: "Match Updated" });
+      setEditingMatch(null);
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: "Failed to update match." });
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -416,15 +461,38 @@ function FifaTrackerPage() {
             <CardContent>
               <div className="space-y-4">
                 {allMatches?.map(match => (
-                  <div key={match.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                  <div key={match.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors relative group">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         {match.timestamp ? formatDistanceToNow(match.timestamp.toDate(), { addSuffix: true }) : "Just now"}
                       </span>
-                      {match.sessionId === activeSession?.id && (
-                          <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase font-bold">Active Session</span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {match.sessionId === activeSession?.id && (
+                            <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase font-bold">Active Session</span>
+                        )}
+                        {isAdmin && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => {
+                                setEditingMatch(match);
+                                setEditScore1(String(match.player1Score));
+                                setEditScore2(String(match.player2Score));
+                              }}>
+                                <Edit className="mr-2 h-4 w-4" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteMatch(match.id)}>
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center justify-between text-lg">
                       <div className="flex-1 text-right pr-4">
@@ -464,6 +532,32 @@ function FifaTrackerPage() {
           </Card>
         </div>
       </div>
+
+      {/* Edit Match Dialog */}
+      <Dialog open={!!editingMatch} onOpenChange={(open) => !open && setEditingMatch(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Match Result</DialogTitle>
+            <DialogDescription>Update the score for the match between {editingMatch?.player1Name} and {editingMatch?.player2Name}.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-8 py-4">
+            <div className="space-y-2">
+              <Label>{editingMatch?.player1Name}'s Score</Label>
+              <Input type="number" value={editScore1} onChange={e => setEditScore1(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>{editingMatch?.player2Name}'s Score</Label>
+              <Input type="number" value={editScore2} onChange={e => setEditScore2(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingMatch(null)}>Cancel</Button>
+            <Button onClick={handleUpdateMatch} disabled={isUpdating}>
+              {isUpdating ? <Loader2 className="animate-spin" /> : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
