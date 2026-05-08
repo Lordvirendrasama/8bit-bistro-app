@@ -30,7 +30,7 @@ export default function AdminHeader() {
                     <Logo className="h-32" />
                 </Link>
                 <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest opacity-40 -mt-2">
-                    v1.1.1 Admin
+                    v1.1.2 Admin
                 </div>
             </div>
             <div className="flex items-center justify-self-end gap-2 pr-4">
