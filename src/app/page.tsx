@@ -30,7 +30,7 @@ function HomePageContent() {
     {
       href: "/fifa-tracker",
       title: "FIFA Match Tracker",
-      description: "Record FIFA 25 matches and track player stats.",
+      description: "Record 1v1 or 2v2 matches and track real-time stats.",
       icon: <PixelFifaIcon className="w-16 h-16 mb-4" />,
     },
     {
@@ -64,9 +64,9 @@ function HomePageContent() {
                 ? "hover:border-primary hover:shadow-primary/20"
                 : "hover:border-accent hover:shadow-accent/20"
             )}>
-              {React.cloneElement(item.icon, {
+              {React.cloneElement(item.icon as React.ReactElement, {
                   className: cn(
-                      item.icon.props.className,
+                      (item.icon as React.ReactElement).props.className,
                       index % 2 === 0 ? "text-primary" : "text-accent"
                   )
               })}

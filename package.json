@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "push": "git add . && git commit -m \"Update app features\" && git push origin main"
+    "push": "git add . && (git commit -m \"Update app features\" || true) && git push origin main"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.28.0",
