@@ -14,7 +14,7 @@ import { usePlayers } from "@/lib/hooks/use-players";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Loader2, Trophy, History, UserPlus, PlayCircle, StopCircle, Calendar, MoreVertical, Edit, Trash2, Users } from "lucide-react";
+import { Loader2, Trophy, History, UserPlus, PlayCircle, StopCircle, Calendar, MoreVertical, Edit, Trash2, Users, AlertCircle } from "lucide-react";
 import type { Player, FifaMatch, FifaSession } from "@/types";
 import { format, formatDistanceToNow } from "date-fns";
 import {
@@ -34,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 function FifaTrackerPage() {
   const firestore = useFirestore();
@@ -61,14 +62,14 @@ function FifaTrackerPage() {
     if (!firestore) return null;
     return query(collection(firestore, "fifaSessions"), where("endTime", "==", null), orderBy("startTime", "desc"), limit(4));
   }, [firestore]);
-  const { data: activeSessions } = useCollection<FifaSession>(activeSessionsQuery);
+  const { data: activeSessions, error: sessionsError } = useCollection<FifaSession>(activeSessionsQuery);
 
   // Fetch all matches
   const matchesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, "fifaMatches"), orderBy("timestamp", "desc"));
   }, [firestore]);
-  const { data: allMatches, isLoading: matchesLoading } = useCollection<FifaMatch>(matchesQuery);
+  const { data: allMatches, isLoading: matchesLoading, error: matchesError } = useCollection<FifaMatch>(matchesQuery);
 
   // Automatically select the first active session if none selected
   useEffect(() => {
@@ -125,7 +126,6 @@ function FifaTrackerPage() {
 
     setIsSessionActionLoading(true);
     try {
-      // Find total count to name it "8 Bit Session X"
       const allSessionsSnap = await getDocs(collection(firestore, "fifaSessions"));
       const nextNumber = allSessionsSnap.size + 1;
       
@@ -139,7 +139,7 @@ function FifaTrackerPage() {
       toast({ title: "Session Started", description: `"${`8 Bit Session ${nextNumber}`}" is now active.` });
     } catch (error) {
       console.error(error);
-      toast({ variant: "destructive", title: "Error", description: "Failed to start session." });
+      toast({ variant: "destructive", title: "Error", description: "Failed to start session. Check Firestore rules." });
     } finally {
       setIsSessionActionLoading(false);
     }
@@ -235,7 +235,7 @@ function FifaTrackerPage() {
       setPlayer2bId("");
     } catch (error) {
       console.error(error);
-      toast({ variant: "destructive", title: "Error", description: "Could not save match." });
+      toast({ variant: "destructive", title: "Error", description: "Could not save match. Check Firestore rules." });
     } finally {
       setIsSubmitting(false);
     }
@@ -351,6 +351,16 @@ function FifaTrackerPage() {
 
   return (
     <div className="container mx-auto p-4 pt-10 max-w-6xl">
+      {(sessionsError || matchesError) && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Permission Error</AlertTitle>
+          <AlertDescription>
+            Could not fetch data from Firestore. Please ensure the latest Security Rules are published in the Firebase Console.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Session Management */}
       <div className="mb-8 space-y-4">
         <div className="flex items-center justify-between">
@@ -387,7 +397,7 @@ function FifaTrackerPage() {
                     </CardContent>
                 </Card>
             ))}
-            {(!activeSessions || activeSessions.length === 0) && (
+            {(!activeSessions || activeSessions.length === 0) && !sessionsError && (
                 <Card className="col-span-full border-dashed border-2 p-8 text-center bg-muted/20">
                     <p className="text-muted-foreground mb-4">No active sessions found. Start one to begin tracking.</p>
                     <Button onClick={handleStartSession} disabled={isSessionActionLoading}>
@@ -572,7 +582,7 @@ function FifaTrackerPage() {
                     </div>
                   </div>
                 ))}
-                {allMatches?.length === 0 && (
+                {allMatches?.length === 0 && !matchesError && (
                   <div className="text-center py-20 text-muted-foreground">
                     <History className="mx-auto h-12 w-12 mb-4 opacity-20" />
                     Waiting for the first whistle...

@@ -7,7 +7,7 @@ service cloud.firestore {
     // Helper function to check for admin role based on email.
     function isAdmin() {
       // The admin role is determined solely by the user's email.
-      return request.auth.token.email == 'admin@8bit.com';
+      return request.auth != null && request.auth.token.email == 'admin@8bit.com';
     }
 
     // --- Security Rules for Collections ---
@@ -55,8 +55,7 @@ service cloud.firestore {
 
     // FIFA Sessions Collection:
     match /fifaSessions/{sessionId} {
-      allow read, create: if request.auth != null;
-      allow update: if request.auth != null;
+      allow read, create, update: if request.auth != null;
       allow delete: if isAdmin();
     }
 
