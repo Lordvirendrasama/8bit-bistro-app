@@ -3,26 +3,25 @@
 
 This is a NextJS application built for The 8Bit Bistro to manage high scores, leaderboards, and FIFA match tracking.
 
-## 🚀 Getting Started
+## 🚀 Version Information
+- **Current Version**: v1.1.0
+- **Features**: Tournament Desk, FIFA Match Tracker (2v2 supported), Live Leaderboards.
 
-1. **Install dependencies**:
+## 🛠 GitHub Management
+
+### Relink & Push
+If you need to connect your local environment to your GitHub repository:
+
+1. **Link the repository**:
    ```bash
-   npm install
+   git remote remove origin
+   git remote add origin https://github.com/Lordvirendrasama/8bit-bistro-app.git
    ```
 
-2. **Run the development server**:
+2. **Sync your changes**:
    ```bash
-   npm run dev
+   npm run push
    ```
-
-## 🛠 Project Management
-
-### Push to GitHub
-Sync your local changes with your GitHub repository:
-```bash
-npm run push
-```
-*Repository URL: https://github.com/Lordvirendrasama/8bit-bistro-app*
 
 ### Deployment (Vercel)
 The project is set up to deploy automatically via Vercel when you push to the `main` branch. 
