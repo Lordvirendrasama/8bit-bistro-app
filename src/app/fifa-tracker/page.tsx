@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -353,9 +352,9 @@ export default function FifaTrackerPage() {
       {(sessionsError || matchesError) && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Permission Error</AlertTitle>
+          <AlertTitle>Firestore Error</AlertTitle>
           <AlertDescription>
-            Could not fetch data from Firestore. Please ensure the latest Security Rules are published in the Firebase Console.
+            {sessionsError?.message || matchesError?.message || "There was an issue fetching data. Check security rules or index settings."}
           </AlertDescription>
         </Alert>
       )}
@@ -396,7 +395,7 @@ export default function FifaTrackerPage() {
                     </CardContent>
                 </Card>
             ))}
-            {(!activeSessions || activeSessions.length === 0) && !sessionsError && (
+            {(!activeSessions || activeSessions.length === 0) && !sessionsError && !sessionsError && (
                 <Card className="col-span-full border-dashed border-2 p-8 text-center bg-muted/20">
                     <p className="text-muted-foreground mb-4">No active sessions found. Start one to begin tracking.</p>
                     <Button onClick={handleStartSession} disabled={isSessionActionLoading}>
