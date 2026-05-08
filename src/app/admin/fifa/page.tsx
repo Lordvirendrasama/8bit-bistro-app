@@ -20,6 +20,7 @@ import {
   Trophy,
   Calendar,
   Search,
+  Hash,
 } from "lucide-react";
 
 import { useFirestore, useCollection, useMemoFirebase, FirestorePermissionError, errorEmitter } from "@/firebase";
@@ -123,7 +124,8 @@ export default function AdminFifaPage() {
       (m.player1bName && m.player1bName.toLowerCase().includes(term)) ||
       (m.player2bName && m.player2bName.toLowerCase().includes(term)) ||
       m.player1Team.toLowerCase().includes(term) ||
-      m.player2Team.toLowerCase().includes(term)
+      m.player2Team.toLowerCase().includes(term) ||
+      (m.sessionName && m.sessionName.toLowerCase().includes(term))
     );
   }, [matches, searchTerm]);
 
@@ -191,7 +193,7 @@ export default function AdminFifaPage() {
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search players or teams..."
+              placeholder="Search players, teams, sessions..."
               className="pl-9 w-full sm:w-[250px]"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -205,7 +207,7 @@ export default function AdminFifaPage() {
               <SelectItem value="all">All Sessions</SelectItem>
               {sessions?.map(s => (
                 <SelectItem key={s.id} value={s.id}>
-                  {s.startTime ? format(s.startTime.toDate(), "MMM d, h:mm a") : "Loading..."}
+                  {s.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -262,9 +264,9 @@ export default function AdminFifaPage() {
                       <div className="text-[10px] italic text-primary/70">{match.player2Team}</div>
                     </TableCell>
                     <TableCell>
-                      {match.sessionId ? (
-                        <Badge variant="outline" className="text-[10px]">
-                          Session ID: {match.sessionId.substring(0, 6)}
+                      {match.sessionName ? (
+                        <Badge variant="outline" className="text-[10px] font-mono">
+                          <Hash className="h-2 w-2 mr-1" /> {match.sessionName}
                         </Badge>
                       ) : (
                         <Badge variant="secondary" className="text-[10px]">No Session</Badge>

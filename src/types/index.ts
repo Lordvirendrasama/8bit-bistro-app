@@ -49,6 +49,7 @@ export type FifaSession = {
 export type FifaMatch = {
   id: string;
   sessionId?: string | null;
+  sessionName?: string | null;
   player1Id: string;
   player1Name: string;
   player1bId?: string;

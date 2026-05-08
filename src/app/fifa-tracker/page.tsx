@@ -13,7 +13,7 @@ import { usePlayers } from "@/lib/hooks/use-players";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Loader2, Trophy, History, UserPlus, PlayCircle, StopCircle, Calendar, MoreVertical, Edit, Trash2, Users, AlertCircle, ExternalLink } from "lucide-react";
+import { Loader2, Trophy, History, UserPlus, PlayCircle, StopCircle, Calendar, MoreVertical, Edit, Trash2, Users, AlertCircle, ExternalLink, Hash } from "lucide-react";
 import type { Player, FifaMatch, FifaSession } from "@/types";
 import { format, formatDistanceToNow } from "date-fns";
 import {
@@ -213,6 +213,7 @@ export default function FifaTrackerPage() {
     try {
       await addDoc(collection(firestore, "fifaMatches"), {
         sessionId: activeSessionId || null,
+        sessionName: activeSession?.name || null,
         player1Id,
         player1Name: p1?.name || "Unknown",
         player1bId: p1b?.id || null,
@@ -533,10 +534,17 @@ export default function FifaTrackerPage() {
                 {allMatches?.map(match => (
                   <div key={match.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors relative group">
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {match.timestamp ? formatDistanceToNow(match.timestamp.toDate(), { addSuffix: true }) : "Just now"}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {match.timestamp ? formatDistanceToNow(match.timestamp.toDate(), { addSuffix: true }) : "Just now"}
+                          </span>
+                          {match.sessionName && (
+                              <Badge variant="outline" className="text-[9px] h-4 px-1.5 w-fit font-mono">
+                                <Hash className="h-2 w-2 mr-0.5" /> {match.sessionName}
+                              </Badge>
+                          )}
+                      </div>
                       <div className="flex items-center gap-2">
                         {isAdmin && (
                           <DropdownMenu>
