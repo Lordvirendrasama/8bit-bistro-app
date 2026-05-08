@@ -16,6 +16,15 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Loader2, Trophy, History, UserPlus } from "lucide-react";
 import type { Player, FifaMatch } from "@/types";
 import { formatDistanceToNow } from "date-fns";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 function FifaTrackerPage() {
   const firestore = useFirestore();
@@ -30,12 +39,42 @@ function FifaTrackerPage() {
   const [player2Score, setPlayer2Score] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // New Player Form State
+  const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
+  const [newPlayerName, setNewPlayerName] = useState("");
+  const [newPlayerInstagram, setNewPlayerInstagram] = useState("");
+  const [isAddingPlayer, setIsAddingPlayer] = useState(false);
+
   const matchesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, "fifaMatches"), orderBy("timestamp", "desc"));
   }, [firestore]);
 
   const { data: matches, isLoading: matchesLoading } = useCollection<FifaMatch>(matchesQuery);
+
+  const handleAddPlayer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firestore || !newPlayerName.trim()) return;
+
+    setIsAddingPlayer(true);
+    try {
+      await addDoc(collection(firestore, "players"), {
+        name: newPlayerName.trim(),
+        instagram: newPlayerInstagram.trim(),
+        groupSize: 1,
+        createdAt: serverTimestamp(),
+      });
+      toast({ title: "Player Added", description: `${newPlayerName} is now in the system.` });
+      setNewPlayerName("");
+      setNewPlayerInstagram("");
+      setIsAddPlayerOpen(false);
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: "Could not add player." });
+    } finally {
+      setIsAddingPlayer(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,10 +160,53 @@ function FifaTrackerPage() {
         <div className="space-y-8">
           <Card className="shadow-2xl shadow-primary/10 border-2 border-primary/20">
             <CardHeader>
-              <CardTitle className="font-headline text-3xl flex items-center gap-2">
-                <Trophy className="text-primary" /> New Match
-              </CardTitle>
-              <CardDescription>Enter match results for FIFA 25.</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="font-headline text-3xl flex items-center gap-2">
+                    <Trophy className="text-primary" /> New Match
+                  </CardTitle>
+                  <CardDescription>Enter match results for FIFA 25.</CardDescription>
+                </div>
+                <Dialog open={isAddPlayerOpen} onOpenChange={setIsAddPlayerOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <UserPlus className="mr-2 h-4 w-4" /> Add Player
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Register New Player</DialogTitle>
+                      <DialogDescription>Add a customer to start tracking their matches.</DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleAddPlayer} className="space-y-4 pt-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="playerName">Full Name</Label>
+                        <Input 
+                          id="playerName" 
+                          placeholder="e.g. Cristiano Ronaldo" 
+                          value={newPlayerName} 
+                          onChange={e => setNewPlayerName(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="playerInsta">Instagram (Optional)</Label>
+                        <Input 
+                          id="playerInsta" 
+                          placeholder="@handle" 
+                          value={newPlayerInstagram} 
+                          onChange={e => setNewPlayerInstagram(e.target.value)}
+                        />
+                      </div>
+                      <DialogFooter>
+                        <Button type="submit" disabled={isAddingPlayer}>
+                          {isAddingPlayer ? <Loader2 className="animate-spin" /> : "Save Player"}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
