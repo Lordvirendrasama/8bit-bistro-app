@@ -518,7 +518,10 @@ export default function AdminMainPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
                             <DropdownMenuItem
-                              onSelect={() => openEditModal(score)}
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                openEditModal(score);
+                              }}
                             >
                               <Edit className="mr-2 h-4 w-4" />
                               Edit Score
@@ -526,7 +529,10 @@ export default function AdminMainPage() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive"
-                              onSelect={() => openDeleteModal(score)}
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                openDeleteModal(score);
+                              }}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
@@ -544,8 +550,8 @@ export default function AdminMainPage() {
 
         {/* Edit Modal */}
         <Dialog open={editModalOpen} onOpenChange={(open) => {
+            setEditModalOpen(open);
             if (!open) {
-              setEditModalOpen(false);
               setIsSubmitting(false);
             }
         }}>
@@ -584,8 +590,8 @@ export default function AdminMainPage() {
 
         {/* Delete Modal */}
         <Dialog open={deleteModalOpen} onOpenChange={(open) => {
+            setDeleteModalOpen(open);
             if (!open) {
-                setDeleteModalOpen(false);
                 setIsSubmitting(false);
             }
         }}>

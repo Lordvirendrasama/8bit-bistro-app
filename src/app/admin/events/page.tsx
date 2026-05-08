@@ -298,13 +298,19 @@ export default function AdminEventsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
-                          <DropdownMenuItem onSelect={() => openEditModal(event)}>
+                          <DropdownMenuItem onSelect={(e) => {
+                            e.preventDefault();
+                            openEditModal(event);
+                          }}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-destructive"
-                            onSelect={() => openDeleteAlert(event)}
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              openDeleteAlert(event);
+                            }}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete
@@ -331,7 +337,10 @@ export default function AdminEventsPage() {
       </Card>
 
       {/* Edit Modal */}
-      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+      <Dialog open={editModalOpen} onOpenChange={(open) => {
+        setEditModalOpen(open);
+        if (!open) setIsEditing(false);
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Event Name</DialogTitle>

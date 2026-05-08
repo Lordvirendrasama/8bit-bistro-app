@@ -445,13 +445,19 @@ export default function AdminUsersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
-                            <DropdownMenuItem onSelect={() => openEditModal(player)} disabled={isSubmitting}>
+                            <DropdownMenuItem onSelect={(e) => {
+                              e.preventDefault();
+                              openEditModal(player);
+                            }} disabled={isSubmitting}>
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="text-destructive"
-                              onSelect={() => openDeleteAlert(player)}
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                openDeleteAlert(player);
+                              }}
                               disabled={isSubmitting}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
@@ -480,6 +486,7 @@ export default function AdminUsersPage() {
         setEditModalOpen(isOpen);
         if (!isOpen) {
             setPlayerToEdit(null);
+            setIsSubmitting(false);
         }
       }}>
         <DialogContent>
@@ -532,6 +539,7 @@ export default function AdminUsersPage() {
           setDeleteAlertOpen(isOpen);
           if (!isOpen) {
               setPlayerToDelete(null);
+              setIsSubmitting(false);
           }
       }}>
         <AlertDialogContent>
@@ -544,7 +552,10 @@ export default function AdminUsersPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteSubmit}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteSubmit();
+              }}
               className="bg-destructive hover:bg-destructive/90"
               disabled={isSubmitting}
             >

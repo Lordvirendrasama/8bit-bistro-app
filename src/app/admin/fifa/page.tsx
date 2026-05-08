@@ -280,14 +280,18 @@ export default function AdminFifaPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={() => {
+                          <DropdownMenuItem onSelect={(e) => {
+                            e.preventDefault();
                             setEditingMatch(match);
                             setEditScore1(String(match.player1Score));
                             setEditScore2(String(match.player2Score));
                           }}>
                             <Edit className="mr-2 h-4 w-4" /> Edit Score
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onSelect={() => setMatchToDelete(match)}>
+                          <DropdownMenuItem className="text-destructive" onSelect={(e) => {
+                            e.preventDefault();
+                            setMatchToDelete(match);
+                          }}>
                             <Trash2 className="mr-2 h-4 w-4" /> Delete Match
                           </DropdownMenuItem>
                         </DropdownMenuContent>

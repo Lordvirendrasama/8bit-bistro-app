@@ -294,13 +294,19 @@ export default function AdminGamesPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
-                          <DropdownMenuItem onSelect={() => openEditModal(game)}>
+                          <DropdownMenuItem onSelect={(e) => {
+                            e.preventDefault();
+                            openEditModal(game);
+                          }}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-destructive"
-                            onSelect={() => openDeleteAlert(game)}
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              openDeleteAlert(game);
+                            }}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete
@@ -327,7 +333,10 @@ export default function AdminGamesPage() {
       </Card>
 
       {/* Edit Modal */}
-      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+      <Dialog open={editModalOpen} onOpenChange={(open) => {
+        setEditModalOpen(open);
+        if (!open) setIsEditing(false);
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Game Name</DialogTitle>
