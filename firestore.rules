@@ -18,9 +18,10 @@ service cloud.firestore {
     }
     
     // Players Collection:
+    // Allow authenticated users to read the list of players so they can select themselves.
     match /players/{playerId} {
-      allow create: if request.auth != null;
-      allow read, update, delete: if isAdmin();
+      allow read, create: if request.auth != null;
+      allow update, delete: if isAdmin();
     }
 
     // Games Collection:
