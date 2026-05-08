@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -12,7 +13,7 @@ import { usePlayers } from "@/lib/hooks/use-players";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Loader2, Trophy, History, UserPlus, PlayCircle, StopCircle, Calendar, MoreVertical, Edit, Trash2, Users, AlertCircle } from "lucide-react";
+import { Loader2, Trophy, History, UserPlus, PlayCircle, StopCircle, Calendar, MoreVertical, Edit, Trash2, Users, AlertCircle, ExternalLink } from "lucide-react";
 import type { Player, FifaMatch, FifaSession } from "@/types";
 import { format, formatDistanceToNow } from "date-fns";
 import {
@@ -55,12 +56,17 @@ export default function FifaTrackerPage() {
   const [isSessionActionLoading, setIsSessionActionLoading] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
-  // Fetch all active sessions (up to 4)
-  const activeSessionsQuery = useMemoFirebase(() => {
+  // Fetch recent sessions (simplified to avoid composite index requirement)
+  const recentSessionsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, "fifaSessions"), where("endTime", "==", null), orderBy("startTime", "desc"), limit(4));
+    return query(collection(firestore, "fifaSessions"), orderBy("startTime", "desc"), limit(20));
   }, [firestore]);
-  const { data: activeSessions, error: sessionsError } = useCollection<FifaSession>(activeSessionsQuery);
+  const { data: recentSessions, error: sessionsError } = useCollection<FifaSession>(recentSessionsQuery);
+
+  // Filter for truly "active" sessions (those without an endTime) client-side
+  const activeSessions = useMemo(() => {
+    return (recentSessions || []).filter(s => !s.endTime).slice(0, 4);
+  }, [recentSessions]);
 
   // Fetch all matches
   const matchesQuery = useMemoFirebase(() => {
@@ -80,7 +86,7 @@ export default function FifaTrackerPage() {
 
   const activeSession = activeSessions?.find(s => s.id === activeSessionId) || null;
 
-  // Player Memory
+  // Player Memory for current session
   const sessionPlayerIds = useMemo(() => {
     if (!activeSessionId || !allMatches) return new Set<string>();
     const ids = new Set<string>();
@@ -137,7 +143,7 @@ export default function FifaTrackerPage() {
       toast({ title: "Session Started", description: `"${`8 Bit Session ${nextNumber}`}" is now active.` });
     } catch (error) {
       console.error(error);
-      toast({ variant: "destructive", title: "Error", description: "Failed to start session. Check Firestore rules." });
+      toast({ variant: "destructive", title: "Error", description: "Failed to start session." });
     } finally {
       setIsSessionActionLoading(false);
     }
@@ -233,7 +239,7 @@ export default function FifaTrackerPage() {
       setPlayer2bId("");
     } catch (error) {
       console.error(error);
-      toast({ variant: "destructive", title: "Error", description: "Could not save match. Check Firestore rules." });
+      toast({ variant: "destructive", title: "Error", description: "Could not save match." });
     } finally {
       setIsSubmitting(false);
     }
@@ -352,9 +358,16 @@ export default function FifaTrackerPage() {
       {(sessionsError || matchesError) && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Firestore Error</AlertTitle>
+          <AlertTitle>System Notice</AlertTitle>
           <AlertDescription>
-            {sessionsError?.message || matchesError?.message || "There was an issue fetching data. Check security rules or index settings."}
+            <p className="mb-2">{sessionsError?.message || matchesError?.message || "There was an issue fetching data."}</p>
+            {sessionsError?.message.includes('index') && (
+              <Button asChild variant="outline" size="sm" className="mt-2 bg-destructive/10 border-destructive/20 hover:bg-destructive/20">
+                <a href="https://console.firebase.google.com/u/0/project/_/firestore/indexes" target="_blank" rel="noreferrer">
+                  <ExternalLink className="mr-2 h-3 w-3" /> Create Required Index
+                </a>
+              </Button>
+            )}
           </AlertDescription>
         </Alert>
       )}
@@ -395,7 +408,7 @@ export default function FifaTrackerPage() {
                     </CardContent>
                 </Card>
             ))}
-            {(!activeSessions || activeSessions.length === 0) && !sessionsError && !sessionsError && (
+            {(!activeSessions || activeSessions.length === 0) && !sessionsError && (
                 <Card className="col-span-full border-dashed border-2 p-8 text-center bg-muted/20">
                     <p className="text-muted-foreground mb-4">No active sessions found. Start one to begin tracking.</p>
                     <Button onClick={handleStartSession} disabled={isSessionActionLoading}>
@@ -525,11 +538,6 @@ export default function FifaTrackerPage() {
                         {match.timestamp ? formatDistanceToNow(match.timestamp.toDate(), { addSuffix: true }) : "Just now"}
                       </span>
                       <div className="flex items-center gap-2">
-                        {activeSessions?.find(s => s.id === match.sessionId) && (
-                            <Badge variant="secondary" className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase font-bold">
-                                {activeSessions.find(s => s.id === match.sessionId)?.name}
-                            </Badge>
-                        )}
                         {isAdmin && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
