@@ -13,7 +13,7 @@ import { usePlayers } from "@/lib/hooks/use-players";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Loader2, Trophy, History, UserPlus } from "lucide-react";
+import { Loader2, Trophy, History, UserPlus, Users } from "lucide-react";
 import type { Player, FifaMatch } from "@/types";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -32,7 +32,10 @@ function FifaTrackerPage() {
   const { toast } = useToast();
 
   const [player1Id, setPlayer1Id] = useState("");
+  const [player1bId, setPlayer1bId] = useState("");
   const [player2Id, setPlayer2Id] = useState("");
+  const [player2bId, setPlayer2bId] = useState("");
+  
   const [player1Team, setPlayer1Team] = useState("");
   const [player2Team, setPlayer2Team] = useState("");
   const [player1Score, setPlayer1Score] = useState("");
@@ -79,27 +82,33 @@ function FifaTrackerPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firestore || !player1Id || !player2Id || !player1Score || !player2Score) {
-      toast({ variant: "destructive", title: "Missing Fields", description: "Please fill out all fields." });
+      toast({ variant: "destructive", title: "Missing Fields", description: "Please fill out at least one player per team." });
       return;
     }
 
-    if (player1Id === player2Id) {
+    if (player1Id === player2Id || (player1bId && player1bId === player2Id) || (player2bId && player2bId === player1Id)) {
       toast({ variant: "destructive", title: "Invalid Match", description: "A player cannot play against themselves." });
       return;
     }
 
     setIsSubmitting(true);
     const p1 = players.find(p => p.id === player1Id);
+    const p1b = player1bId ? players.find(p => p.id === player1bId) : null;
     const p2 = players.find(p => p.id === player2Id);
+    const p2b = player2bId ? players.find(p => p.id === player2bId) : null;
 
     try {
       await addDoc(collection(firestore, "fifaMatches"), {
         player1Id,
         player1Name: p1?.name || "Unknown",
+        player1bId: player1bId || null,
+        player1bName: p1b?.name || null,
         player1Team,
         player1Score: Number(player1Score),
         player2Id,
         player2Name: p2?.name || "Unknown",
+        player2bId: player2bId || null,
+        player2bName: p2b?.name || null,
         player2Team,
         player2Score: Number(player2Score),
         timestamp: serverTimestamp(),
@@ -110,6 +119,10 @@ function FifaTrackerPage() {
       setPlayer2Score("");
       setPlayer1Team("");
       setPlayer2Team("");
+      setPlayer1Id("");
+      setPlayer1bId("");
+      setPlayer2Id("");
+      setPlayer2bId("");
     } catch (error) {
       console.error(error);
       toast({ variant: "destructive", title: "Error", description: "Could not save match." });
@@ -123,17 +136,37 @@ function FifaTrackerPage() {
     const stats: Record<string, { name: string; wins: number; draws: number; losses: number; gf: number; ga: number; points: number }> = {};
 
     matches.forEach(m => {
-      [
-        { id: m.player1Id, name: m.player1Name, score: m.player1Score, opponentScore: m.player2Score },
-        { id: m.player2Id, name: m.player2Name, score: m.player2Score, opponentScore: m.player1Score }
-      ].forEach(p => {
+      const team1 = [{ id: m.player1Id, name: m.player1Name }];
+      if (m.player1bId) team1.push({ id: m.player1bId, name: m.player1bName! });
+
+      const team2 = [{ id: m.player2Id, name: m.player2Name }];
+      if (m.player2bId) team2.push({ id: m.player2bId, name: m.player2bName! });
+
+      // Process Team 1 Players
+      team1.forEach(p => {
         if (!stats[p.id]) stats[p.id] = { name: p.name, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0, points: 0 };
-        stats[p.id].gf += p.score;
-        stats[p.id].ga += p.opponentScore;
-        if (p.score > p.opponentScore) {
+        stats[p.id].gf += m.player1Score;
+        stats[p.id].ga += m.player2Score;
+        if (m.player1Score > m.player2Score) {
           stats[p.id].wins += 1;
           stats[p.id].points += 3;
-        } else if (p.score === p.opponentScore) {
+        } else if (m.player1Score === m.player2Score) {
+          stats[p.id].draws += 1;
+          stats[p.id].points += 1;
+        } else {
+          stats[p.id].losses += 1;
+        }
+      });
+
+      // Process Team 2 Players
+      team2.forEach(p => {
+        if (!stats[p.id]) stats[p.id] = { name: p.name, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0, points: 0 };
+        stats[p.id].gf += m.player2Score;
+        stats[p.id].ga += m.player1Score;
+        if (m.player2Score > m.player1Score) {
+          stats[p.id].wins += 1;
+          stats[p.id].points += 3;
+        } else if (m.player2Score === m.player1Score) {
           stats[p.id].draws += 1;
           stats[p.id].points += 1;
         } else {
@@ -211,14 +244,23 @@ function FifaTrackerPage() {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
-                  {/* Player 1 */}
+                  {/* Team 1 */}
                   <div className="space-y-4 p-4 rounded-lg bg-primary/5 border border-primary/10">
-                    <Label className="text-primary font-bold">Player 1 (Home)</Label>
+                    <Label className="text-primary font-bold">Team 1 (Home)</Label>
                     <Select onValueChange={setPlayer1Id} value={player1Id}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select Player" />
+                        <SelectValue placeholder="Select Player 1" />
                       </SelectTrigger>
                       <SelectContent>
+                        {players.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Select onValueChange={setPlayer1bId} value={player1bId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Player 2 (Optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
                         {players.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -226,14 +268,23 @@ function FifaTrackerPage() {
                     <Input type="number" placeholder="Goals" value={player1Score} onChange={e => setPlayer1Score(e.target.value)} className="text-2xl font-mono text-center" />
                   </div>
 
-                  {/* Player 2 */}
+                  {/* Team 2 */}
                   <div className="space-y-4 p-4 rounded-lg bg-accent/5 border border-accent/10">
-                    <Label className="text-accent font-bold">Player 2 (Away)</Label>
+                    <Label className="text-accent font-bold">Team 2 (Away)</Label>
                     <Select onValueChange={setPlayer2Id} value={player2Id}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select Player" />
+                        <SelectValue placeholder="Select Player 1" />
                       </SelectTrigger>
                       <SelectContent>
+                        {players.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Select onValueChange={setPlayer2bId} value={player2bId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Player 2 (Optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
                         {players.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -310,7 +361,10 @@ function FifaTrackerPage() {
                     </div>
                     <div className="flex items-center justify-between text-lg">
                       <div className="flex-1 text-right pr-4">
-                        <div className="font-bold truncate">{match.player1Name}</div>
+                        <div className="font-bold truncate">
+                          {match.player1Name}
+                          {match.player1bName && <span className="block text-xs text-muted-foreground">& {match.player1bName}</span>}
+                        </div>
                         <div className="text-xs text-muted-foreground italic">{match.player1Team}</div>
                       </div>
                       <div className="flex items-center gap-2 font-mono text-2xl bg-muted px-4 py-1 rounded-md">
@@ -323,7 +377,10 @@ function FifaTrackerPage() {
                         </span>
                       </div>
                       <div className="flex-1 text-left pl-4">
-                        <div className="font-bold truncate">{match.player2Name}</div>
+                        <div className="font-bold truncate">
+                          {match.player2Name}
+                          {match.player2bName && <span className="block text-xs text-muted-foreground">& {match.player2bName}</span>}
+                        </div>
                         <div className="text-xs text-muted-foreground italic">{match.player2Team}</div>
                       </div>
                     </div>
