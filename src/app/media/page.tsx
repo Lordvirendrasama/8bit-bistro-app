@@ -1,7 +1,6 @@
 
 "use client";
 
-import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Card, CardContent } from "@/components/ui/card";
 import YouTube, { YouTubeProps } from 'react-youtube';
 import { useState, useEffect } from "react";
@@ -12,7 +11,7 @@ import type { MediaConfig } from "@/types";
 
 const MEDIA_CONFIG_PATH = "config/media";
 
-function MediaPage() {
+export default function MediaPage() {
   const firestore = useFirestore();
   const mediaConfigDoc = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -20,15 +19,10 @@ function MediaPage() {
   }, [firestore]);
 
   const { data: mediaConfig, isLoading: isLoadingConfig } = useDoc<MediaConfig>(mediaConfigDoc);
-
-  // Fallback to the original hardcoded ID if the config doesn't exist or is loading
   const playlistId = mediaConfig?.playlistId || "PLNMTXgsQnLlCAYdQGh3sVAvun2hWZ_a6x";
-
   const [opts, setOpts] = useState<YouTubeProps['opts'] | null>(null);
 
   useEffect(() => {
-    // This effect runs only on the client, after the component has mounted.
-    // This is where we can safely access `window`.
     setOpts({
       height: '100%',
       width: '100%',
@@ -36,11 +30,10 @@ function MediaPage() {
         autoplay: 1,
         listType: 'playlist',
         list: playlistId,
-        // window.location.origin is now guaranteed to be available.
         origin: window.location.origin,
       },
     });
-  }, [playlistId]); // The effect will re-run if the playlistId changes.
+  }, [playlistId]);
 
   return (
     <div className="min-h-screen pt-10 pb-10">
@@ -66,13 +59,5 @@ function MediaPage() {
         </Card>
       </div>
     </div>
-  );
-}
-
-export default function GuardedMediaPage() {
-  return (
-    <AuthGuard>
-      <MediaPage />
-    </AuthGuard>
   );
 }

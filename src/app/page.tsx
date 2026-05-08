@@ -4,7 +4,6 @@
 import Link from "next/link";
 import React from "react";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { AuthGuard } from "@/components/auth/AuthGuard";
 import PixelCameraIcon from "@/components/icons/PixelCameraIcon";
 import PixelLeaderboardIcon from "@/components/icons/PixelLeaderboardIcon";
 import PixelVideoIcon from "@/components/icons/PixelVideoIcon";
@@ -13,7 +12,7 @@ import PixelKeyIcon from "@/components/icons/PixelKeyIcon";
 import PixelFifaIcon from "@/components/icons/PixelFifaIcon";
 import { cn } from "@/lib/utils";
 
-function HomePageContent() {
+export default function HomePage() {
   const menuItems = [
     {
       href: "/dashboard",
@@ -81,13 +80,5 @@ function HomePageContent() {
         ))}
       </div>
     </div>
-  );
-}
-
-export default function HomePage() {
-  return (
-    <AuthGuard>
-      <HomePageContent />
-    </AuthGuard>
   );
 }

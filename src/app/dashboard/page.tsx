@@ -56,7 +56,6 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { AuthGuard } from "@/components/auth/AuthGuard";
 
 const AddPlayerModal = ({
   open,
@@ -213,9 +212,8 @@ const AddPlayerModal = ({
   );
 };
 
-function DashboardPage() {
-  const { user, loading: userLoading } = useAuth();
-  const auth = useFirebaseAuthInstance();
+export default function DashboardPage() {
+  const { user } = useAuth();
   const firestore = useFirestore();
   const { games, loading: gamesLoading } = useGames();
   const { players, loading: playersLoading } = usePlayers();
@@ -296,7 +294,6 @@ function DashboardPage() {
     const selectedEvent = events?.find((e) => e.id === selectedEventId);
 
     if (
-      !user ||
       !firestore ||
       !selectedGameId ||
       !selectedEventId ||
@@ -360,14 +357,6 @@ function DashboardPage() {
         setIsSubmitting(false);
       });
   };
-
-  if (userLoading || !user) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <>
@@ -623,13 +612,5 @@ function DashboardPage() {
         </DialogContent>
       </Dialog>
     </>
-  );
-}
-
-export default function GuardedDashboardPage() {
-  return (
-    <AuthGuard>
-      <DashboardPage />
-    </AuthGuard>
   );
 }

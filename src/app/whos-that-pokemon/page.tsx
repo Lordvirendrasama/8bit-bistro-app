@@ -1,7 +1,7 @@
+
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { AuthGuard } from "@/components/auth/AuthGuard";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -27,7 +27,7 @@ const playlist = [
 
 const PAUSE_TIME = 5;
 
-function WhosThatPokemonPage() {
+export default function WhosThatPokemonPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [gameState, setGameState] = useState<"idle" | "playing" | "paused" | "revealed" | "finished" | "error">("idle");
   const [isDesktop, setIsDesktop] = useState(false);
@@ -35,7 +35,6 @@ function WhosThatPokemonPage() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Check for desktop for host controls
   useEffect(() => {
     setIsClient(true);
     if (typeof window !== "undefined") {
@@ -46,17 +45,15 @@ function WhosThatPokemonPage() {
     }
   }, []);
 
-  // New, more reliable pause logic using useEffect to manage the animation loop
   useEffect(() => {
     let animationFrameId: number;
 
     const monitorPlayback = () => {
       if (videoRef.current && videoRef.current.currentTime >= PAUSE_TIME) {
         videoRef.current.pause();
-        videoRef.current.currentTime = PAUSE_TIME; // Lock it
+        videoRef.current.currentTime = PAUSE_TIME;
         setGameState('paused');
       } else {
-        // Only continue the loop if we are still in the 'playing' state
         if (gameState === 'playing') {
           animationFrameId = requestAnimationFrame(monitorPlayback);
         }
@@ -67,7 +64,6 @@ function WhosThatPokemonPage() {
       animationFrameId = requestAnimationFrame(monitorPlayback);
     }
 
-    // Cleanup function to stop the loop when the component unmounts or gameState changes
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
@@ -78,18 +74,16 @@ function WhosThatPokemonPage() {
     if (!videoRef.current) return;
     
     videoRef.current.currentTime = 0;
-    // Enable sound from the start, as this is a direct user interaction
     videoRef.current.muted = false; 
     
     const playPromise = videoRef.current.play();
     if (playPromise !== undefined) {
       playPromise
         .then(() => {
-          setGameState("playing"); // Triggers the useEffect for pause logic
+          setGameState("playing");
         })
         .catch((error) => {
           console.error("Video play failed:", error);
-          // Fallback for stricter environments: try playing muted if unmuted fails
           if (videoRef.current) {
             videoRef.current.muted = true;
             videoRef.current.play().then(() => {
@@ -105,7 +99,6 @@ function WhosThatPokemonPage() {
   const handleReveal = () => {
     if (!videoRef.current || gameState !== 'paused') return;
 
-    // The video is already unmuted from handlePlay, so we just need to play
     const playPromise = videoRef.current.play();
 
     if (playPromise !== undefined) {
@@ -138,7 +131,6 @@ function WhosThatPokemonPage() {
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.load();
-      // Mute by default when a new video loads, sound will be enabled by user clicking 'Play'
       videoRef.current.muted = true; 
       setGameState('idle'); 
     }
@@ -273,13 +265,5 @@ function WhosThatPokemonPage() {
         </div>
       </div>
     </div>
-  );
-}
-
-export default function GuardedWhosThatPokemonPage() {
-  return (
-    <AuthGuard>
-      <WhosThatPokemonPage />
-    </AuthGuard>
   );
 }

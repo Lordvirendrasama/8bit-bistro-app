@@ -5,7 +5,6 @@ import { useState, useMemo, useEffect } from "react";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { useAuth } from "@/hooks/use-auth";
 import { collection, query, orderBy, addDoc, serverTimestamp, updateDoc, doc, limit, deleteDoc, getDocs, where } from "firebase/firestore";
-import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +35,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-function FifaTrackerPage() {
+export default function FifaTrackerPage() {
   const firestore = useFirestore();
   const { user, isAdmin } = useAuth();
   const { players, loading: playersLoading } = usePlayers();
@@ -82,7 +81,7 @@ function FifaTrackerPage() {
 
   const activeSession = activeSessions?.find(s => s.id === activeSessionId) || null;
 
-  // Player Memory: Get players who have played in the current active session
+  // Player Memory
   const sessionPlayerIds = useMemo(() => {
     if (!activeSessionId || !allMatches) return new Set<string>();
     const ids = new Set<string>();
@@ -118,7 +117,7 @@ function FifaTrackerPage() {
   const [isAddingPlayer, setIsAddingPlayer] = useState(false);
 
   const handleStartSession = async () => {
-    if (!firestore || !user) return;
+    if (!firestore) return;
     if (activeSessions && activeSessions.length >= 4) {
       toast({ variant: "destructive", title: "Limit Reached", description: "You can only have 4 simultaneous active sessions." });
       return;
@@ -133,7 +132,7 @@ function FifaTrackerPage() {
         name: `8 Bit Session ${nextNumber}`,
         startTime: serverTimestamp(),
         endTime: null,
-        createdBy: user.uid
+        createdBy: user?.uid || 'public'
       });
       setActiveSessionId(newSessionRef.id);
       toast({ title: "Session Started", description: `"${`8 Bit Session ${nextNumber}`}" is now active.` });
@@ -656,12 +655,4 @@ function StatsTable({ stats, emptyMessage }: { stats: any[], emptyMessage: strin
             </TableBody>
         </Table>
     );
-}
-
-export default function GuardedFifaTrackerPage() {
-  return (
-    <AuthGuard>
-      <FifaTrackerPage />
-    </AuthGuard>
-  );
 }

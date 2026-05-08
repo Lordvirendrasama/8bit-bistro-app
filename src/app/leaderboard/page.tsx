@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -7,7 +8,6 @@ import {
   orderBy,
 } from "firebase/firestore";
 
-import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import type { Score, Game, Event } from "@/types";
 import { Loader2, Crown, ChevronDown } from "lucide-react";
@@ -30,7 +30,7 @@ import {
 import { NewScoreAnnouncement } from "@/components/leaderboard/NewScoreAnnouncement";
 
 
-function LeaderboardPage() {
+export default function LeaderboardPage() {
   const firestore = useFirestore();
   const [selectedEventId, setSelectedEventId] = useState<string>('all');
 
@@ -54,7 +54,6 @@ function LeaderboardPage() {
 
   const scoresQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    // Order by submission time to easily find the newest score
     return query(
       collection(firestore, "scoreSubmissions"),
       orderBy("submittedAt", "desc")
@@ -65,18 +64,13 @@ function LeaderboardPage() {
   // Effect to detect and announce new scores
   useEffect(() => {
     if (allScores && !loadingScores) {
-      // On initial load, just set the reference and don't show any announcement.
       if (previousScoresRef.current === null) {
         previousScoresRef.current = allScores;
         return;
       }
 
-      // Only announce if a new score has been *added*.
       if (allScores.length > previousScoresRef.current.length) {
-        // The newest score is the first in the list because of the query's `orderBy`.
         const newScore = allScores[0];
-        
-        // A final check to ensure this score wasn't in the previous list at all
         const isTrulyNew = !previousScoresRef.current.find(s => s.id === newScore.id);
         
         if (isTrulyNew) {
@@ -84,14 +78,10 @@ function LeaderboardPage() {
             setShowAnnouncement(true);
             const timer = setTimeout(() => {
               setShowAnnouncement(false);
-            }, 4000); // Hide after 4 seconds
-    
-            // Cleanup the timer if the component unmounts or effect re-runs
+            }, 4000);
             return () => clearTimeout(timer);
         }
       }
-      
-      // Update the reference for the next render.
       previousScoresRef.current = allScores;
     }
   }, [allScores, loadingScores]);
@@ -291,13 +281,5 @@ function LeaderboardPage() {
         </div>
       </div>
     </>
-  );
-}
-
-export default function GuardedLeaderboardPage() {
-  return (
-    <AuthGuard>
-      <LeaderboardPage />
-    </AuthGuard>
   );
 }
