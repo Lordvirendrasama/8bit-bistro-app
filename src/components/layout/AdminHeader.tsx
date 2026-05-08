@@ -16,7 +16,7 @@ export default function AdminHeader() {
     { href: '/admin/events', label: 'Events' },
     { href: '/admin/offers', label: 'Offers' },
     { href: '/admin/media', label: 'Media' },
-    { href: '/admin/fif', label: 'FIFA Admin' },
+    { href: '/admin/fifa', label: 'FIFA Admin' },
     { href: '/fifa-tracker', label: 'FIFA Tracker' },
   ];
 
