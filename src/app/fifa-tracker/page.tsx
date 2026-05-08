@@ -294,7 +294,15 @@ function FifaTrackerPage() {
                   <div>
                       <h2 className="text-xl font-headline">{activeSession ? 'Active Session' : 'No Active Session'}</h2>
                       <p className="text-sm text-muted-foreground">
-                          {activeSession ? `Started ${formatDistanceToNow(activeSession.startTime.toDate())} ago` : 'Start a session to track current play separately.'}
+                          {activeSession ? (
+                            activeSession.startTime ? (
+                              `Started ${formatDistanceToNow(activeSession.startTime.toDate())} ago`
+                            ) : (
+                              'Starting session...'
+                            )
+                          ) : (
+                            'Start a session to track current play separately.'
+                          )}
                       </p>
                   </div>
               </div>

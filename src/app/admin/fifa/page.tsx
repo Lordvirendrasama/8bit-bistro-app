@@ -205,7 +205,7 @@ export default function AdminFifaPage() {
               <SelectItem value="all">All Sessions</SelectItem>
               {sessions?.map(s => (
                 <SelectItem key={s.id} value={s.id}>
-                  {format(s.startTime.toDate(), "MMM d, h:mm a")}
+                  {s.startTime ? format(s.startTime.toDate(), "MMM d, h:mm a") : "Loading..."}
                 </SelectItem>
               ))}
             </SelectContent>
