@@ -19,6 +19,7 @@ service cloud.firestore {
     
     // Players Collection:
     // Allow authenticated users to read the list of players so they can select themselves.
+    // This is required for the FIFA Tracker and Score Submission pages.
     match /players/{playerId} {
       allow read, create: if request.auth != null;
       allow update, delete: if isAdmin();

@@ -1,3 +1,4 @@
+
 {
   "name": "nextn",
   "version": "0.1.0",
@@ -10,7 +11,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "push": "git add . && git commit -m \"Update\" && git push origin main"
+    "push": "git add . && git commit -m \"Update app features\" && git push origin main"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.28.0",
