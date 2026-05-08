@@ -280,14 +280,14 @@ export default function AdminFifaPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => {
+                          <DropdownMenuItem onSelect={() => {
                             setEditingMatch(match);
                             setEditScore1(String(match.player1Score));
                             setEditScore2(String(match.player2Score));
                           }}>
                             <Edit className="mr-2 h-4 w-4" /> Edit Score
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => setMatchToDelete(match)}>
+                          <DropdownMenuItem className="text-destructive" onSelect={() => setMatchToDelete(match)}>
                             <Trash2 className="mr-2 h-4 w-4" /> Delete Match
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -309,7 +309,12 @@ export default function AdminFifaPage() {
       </Card>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingMatch} onOpenChange={(open) => !open && setEditingMatch(null)}>
+      <Dialog open={!!editingMatch} onOpenChange={(open) => {
+          if (!open) {
+            setEditingMatch(null);
+            setIsUpdating(false);
+          }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Match Result</DialogTitle>
@@ -338,7 +343,7 @@ export default function AdminFifaPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingMatch(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setEditingMatch(null)} disabled={isUpdating}>Cancel</Button>
             <Button onClick={handleUpdateMatch} disabled={isUpdating}>
               {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Changes"}
             </Button>
@@ -356,8 +361,11 @@ export default function AdminFifaPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteMatch} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => {
+                e.preventDefault();
+                handleDeleteMatch();
+            }} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
               {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete Record"}
             </AlertDialogAction>
           </AlertDialogFooter>

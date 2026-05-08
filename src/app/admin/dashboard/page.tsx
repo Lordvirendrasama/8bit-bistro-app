@@ -266,6 +266,7 @@ export default function AdminMainPage() {
     updateDoc(scoreDocRef, updatedData)
       .then(() => {
         toast({ title: "Success", description: "Score value updated." });
+        setEditModalOpen(false);
       })
       .catch(() => {
         const permissionError = new FirestorePermissionError({
@@ -277,7 +278,6 @@ export default function AdminMainPage() {
       })
       .finally(() => {
         setIsSubmitting(false);
-        setEditModalOpen(false);
       });
   };
 
@@ -298,6 +298,7 @@ export default function AdminMainPage() {
     deleteDoc(scoreDocRef)
       .then(() => {
         toast({ title: "Success", description: "Score deleted." });
+        setDeleteModalOpen(false);
       })
       .catch(() => {
         const permissionError = new FirestorePermissionError({
@@ -308,7 +309,6 @@ export default function AdminMainPage() {
       })
       .finally(() => {
         setIsSubmitting(false);
-        setDeleteModalOpen(false);
       });
   };
 
@@ -543,7 +543,12 @@ export default function AdminMainPage() {
         </Card>
 
         {/* Edit Modal */}
-        <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+        <Dialog open={editModalOpen} onOpenChange={(open) => {
+            if (!open) {
+              setEditModalOpen(false);
+              setIsSubmitting(false);
+            }
+        }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit Score</DialogTitle>
@@ -557,11 +562,13 @@ export default function AdminMainPage() {
               value={newScoreValue}
               onChange={(e) => setNewScoreValue(e.target.value)}
               placeholder="Enter new score"
+              disabled={isSubmitting}
             />
             <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => setEditModalOpen(false)}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
@@ -576,7 +583,12 @@ export default function AdminMainPage() {
         </Dialog>
 
         {/* Delete Modal */}
-        <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+        <Dialog open={deleteModalOpen} onOpenChange={(open) => {
+            if (!open) {
+                setDeleteModalOpen(false);
+                setIsSubmitting(false);
+            }
+        }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Are you sure?</DialogTitle>
