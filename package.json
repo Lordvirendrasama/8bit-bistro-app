@@ -1,7 +1,7 @@
 
 {
   "name": "8bit-bistro-app",
-  "version": "1.1.2",
+  "version": "1.1.4",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "push": "git add . && (git commit -m \"Update app features v1.1.2\" || true) && git push origin main"
+    "push": "git add . && (git commit -m \"Update app features v1.1.4\" || true) && git push origin main"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.28.0",

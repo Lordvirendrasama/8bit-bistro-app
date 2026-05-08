@@ -4,7 +4,7 @@
 This is a NextJS application built for The 8Bit Bistro to manage high scores, leaderboards, and FIFA match tracking.
 
 ## 🚀 Version Information
-- **Current Version**: v1.1.2
+- **Current Version**: v1.1.4
 - **Features**: Tournament Desk, FIFA Match Tracker (2v2 supported), Live Leaderboards, Session Management, Admin Controls.
 
 ## 🛠 GitHub & Vercel Management
