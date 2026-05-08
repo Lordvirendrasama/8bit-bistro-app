@@ -38,8 +38,17 @@ export type Score = {
   submittedAt: Timestamp;
 };
 
+export type FifaSession = {
+  id: string;
+  name: string;
+  startTime: Timestamp;
+  endTime?: Timestamp | null;
+  createdBy: string;
+};
+
 export type FifaMatch = {
   id: string;
+  sessionId?: string | null;
   player1Id: string;
   player1Name: string;
   player1bId?: string;

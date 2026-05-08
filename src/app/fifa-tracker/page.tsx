@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
+import { useState, useMemo, useEffect } from "react";
+import { useFirestore, useCollection, useMemoFirebase, useAuth } from "@/firebase";
+import { collection, query, orderBy, addDoc, serverTimestamp, updateDoc, doc, limit, where } from "firebase/firestore";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,9 +13,9 @@ import { usePlayers } from "@/lib/hooks/use-players";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Loader2, Trophy, History, UserPlus, Users } from "lucide-react";
-import type { Player, FifaMatch } from "@/types";
-import { formatDistanceToNow } from "date-fns";
+import { Loader2, Trophy, History, UserPlus, PlayCircle, StopCircle, Calendar } from "lucide-react";
+import type { Player, FifaMatch, FifaSession } from "@/types";
+import { format, formatDistanceToNow } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -25,9 +25,11 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 function FifaTrackerPage() {
   const firestore = useFirestore();
+  const { user } = useAuth();
   const { players, loading: playersLoading } = usePlayers();
   const { toast } = useToast();
 
@@ -48,12 +50,55 @@ function FifaTrackerPage() {
   const [newPlayerInstagram, setNewPlayerInstagram] = useState("");
   const [isAddingPlayer, setIsAddingPlayer] = useState(false);
 
+  // Session Management
+  const [isSessionActionLoading, setIsSessionActionLoading] = useState(false);
+  const sessionsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "fifaSessions"), orderBy("startTime", "desc"), limit(1));
+  }, [firestore]);
+  const { data: latestSessions } = useCollection<FifaSession>(sessionsQuery);
+  const activeSession = latestSessions?.find(s => !s.endTime) || null;
+
   const matchesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, "fifaMatches"), orderBy("timestamp", "desc"));
   }, [firestore]);
+  const { data: allMatches, isLoading: matchesLoading } = useCollection<FifaMatch>(matchesQuery);
 
-  const { data: matches, isLoading: matchesLoading } = useCollection<FifaMatch>(matchesQuery);
+  const handleStartSession = async () => {
+    if (!firestore || !user) return;
+    setIsSessionActionLoading(true);
+    try {
+      await addDoc(collection(firestore, "fifaSessions"), {
+        name: `Session - ${format(new Date(), "PPp")}`,
+        startTime: serverTimestamp(),
+        endTime: null,
+        createdBy: user.uid
+      });
+      toast({ title: "Session Started", description: "All matches recorded will now be linked to this session." });
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: "Failed to start session." });
+    } finally {
+      setIsSessionActionLoading(false);
+    }
+  };
+
+  const handleEndSession = async () => {
+    if (!firestore || !activeSession) return;
+    setIsSessionActionLoading(true);
+    try {
+      await updateDoc(doc(firestore, "fifaSessions", activeSession.id), {
+        endTime: serverTimestamp()
+      });
+      toast({ title: "Session Ended", description: "The current competition is now finalized." });
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: "Failed to end session." });
+    } finally {
+      setIsSessionActionLoading(false);
+    }
+  };
 
   const handleAddPlayer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,21 +138,22 @@ function FifaTrackerPage() {
 
     setIsSubmitting(true);
     const p1 = players.find(p => p.id === player1Id);
-    const p1b = player1bId ? players.find(p => p.id === player1bId) : null;
+    const p1b = player1bId && player1bId !== "none" ? players.find(p => p.id === player1bId) : null;
     const p2 = players.find(p => p.id === player2Id);
-    const p2b = player2bId ? players.find(p => p.id === player2bId) : null;
+    const p2b = player2bId && player2bId !== "none" ? players.find(p => p.id === player2bId) : null;
 
     try {
       await addDoc(collection(firestore, "fifaMatches"), {
+        sessionId: activeSession?.id || null,
         player1Id,
         player1Name: p1?.name || "Unknown",
-        player1bId: player1bId || null,
+        player1bId: p1b?.id || null,
         player1bName: p1b?.name || null,
         player1Team,
         player1Score: Number(player1Score),
         player2Id,
         player2Name: p2?.name || "Unknown",
-        player2bId: player2bId || null,
+        player2bId: p2b?.id || null,
         player2bName: p2b?.name || null,
         player2Team,
         player2Score: Number(player2Score),
@@ -131,11 +177,10 @@ function FifaTrackerPage() {
     }
   };
 
-  const playerStats = useMemo(() => {
-    if (!matches) return [];
+  const calculateStats = (matchesToProcess: FifaMatch[]) => {
     const stats: Record<string, { name: string; wins: number; draws: number; losses: number; gf: number; ga: number; points: number }> = {};
 
-    matches.forEach(m => {
+    matchesToProcess.forEach(m => {
       const team1 = [{ id: m.player1Id, name: m.player1Name }];
       if (m.player1bId) team1.push({ id: m.player1bId, name: m.player1bName! });
 
@@ -176,7 +221,13 @@ function FifaTrackerPage() {
     });
 
     return Object.values(stats).sort((a, b) => b.points - a.points || (b.gf - b.ga) - (a.gf - a.ga));
-  }, [matches]);
+  };
+
+  const globalStats = useMemo(() => calculateStats(allMatches || []), [allMatches]);
+  const sessionStats = useMemo(() => {
+      if (!activeSession || !allMatches) return [];
+      return calculateStats(allMatches.filter(m => m.sessionId === activeSession.id));
+  }, [allMatches, activeSession]);
 
   if (playersLoading || matchesLoading) {
     return (
@@ -188,6 +239,36 @@ function FifaTrackerPage() {
 
   return (
     <div className="container mx-auto p-4 pt-10 max-w-6xl">
+      {/* Session Banner */}
+      <Card className="mb-8 border-2 border-primary/40 bg-primary/5">
+          <CardContent className="flex flex-col md:flex-row items-center justify-between p-6 gap-4">
+              <div className="flex items-center gap-4">
+                  <div className={`p-3 rounded-full ${activeSession ? 'bg-green-500/20 text-green-500' : 'bg-muted text-muted-foreground'}`}>
+                      <PlayCircle className="h-6 w-6" />
+                  </div>
+                  <div>
+                      <h2 className="text-xl font-headline">{activeSession ? 'Active Session' : 'No Active Session'}</h2>
+                      <p className="text-sm text-muted-foreground">
+                          {activeSession ? `Started ${formatDistanceToNow(activeSession.startTime.toDate())} ago` : 'Start a session to track current play separately.'}
+                      </p>
+                  </div>
+              </div>
+              <div className="flex items-center gap-2">
+                  {activeSession ? (
+                      <Button variant="destructive" onClick={handleEndSession} disabled={isSessionActionLoading}>
+                          {isSessionActionLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <StopCircle className="mr-2 h-4 w-4" />}
+                          End Session
+                      </Button>
+                  ) : (
+                      <Button onClick={handleStartSession} disabled={isSessionActionLoading}>
+                          {isSessionActionLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <PlayCircle className="mr-2 h-4 w-4" />}
+                          Start Session
+                      </Button>
+                  )}
+              </div>
+          </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Match Recording Form */}
         <div className="space-y-8">
@@ -300,44 +381,26 @@ function FifaTrackerPage() {
             </CardContent>
           </Card>
 
-          {/* FIFA Leaderboard */}
+          {/* Leaderboard Tabs */}
           <Card className="border-2 border-primary/20">
-            <CardHeader>
+            <CardHeader className="pb-0">
               <CardTitle className="font-headline text-2xl flex items-center gap-2">
-                <Trophy className="text-yellow-500" /> FIFA Leaderboard
+                <Trophy className="text-yellow-500" /> Leaderboard
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Player</TableHead>
-                    <TableHead className="text-center">P</TableHead>
-                    <TableHead className="text-center">W-D-L</TableHead>
-                    <TableHead className="text-center">GD</TableHead>
-                    <TableHead className="text-right">Pts</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {playerStats.map((stat, idx) => (
-                    <TableRow key={stat.name} className={idx === 0 ? "bg-primary/10" : ""}>
-                      <TableCell className="font-bold flex items-center gap-2">
-                        {idx === 0 && <Trophy className="h-4 w-4 text-yellow-500" />}
-                        {stat.name}
-                      </TableCell>
-                      <TableCell className="text-center">{stat.wins + stat.draws + stat.losses}</TableCell>
-                      <TableCell className="text-center text-xs text-muted-foreground">{stat.wins}-{stat.draws}-{stat.losses}</TableCell>
-                      <TableCell className="text-center font-mono">{stat.gf - stat.ga}</TableCell>
-                      <TableCell className="text-right font-bold text-primary">{stat.points}</TableCell>
-                    </TableRow>
-                  ))}
-                  {playerStats.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No matches recorded yet.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                <Tabs defaultValue="session" className="w-full mt-4">
+                    <TabsList className="grid w-full grid-cols-2 mb-4">
+                        <TabsTrigger value="session">Session</TabsTrigger>
+                        <TabsTrigger value="global">All-Time</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="session">
+                        <StatsTable stats={sessionStats} emptyMessage={activeSession ? "No matches in this session yet." : "No active session."} />
+                    </TabsContent>
+                    <TabsContent value="global">
+                        <StatsTable stats={globalStats} emptyMessage="No matches recorded yet." />
+                    </TabsContent>
+                </Tabs>
             </CardContent>
           </Card>
         </div>
@@ -352,12 +415,16 @@ function FifaTrackerPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {matches?.map(match => (
+                {allMatches?.map(match => (
                   <div key={match.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
                         {match.timestamp ? formatDistanceToNow(match.timestamp.toDate(), { addSuffix: true }) : "Just now"}
                       </span>
+                      {match.sessionId === activeSession?.id && (
+                          <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase font-bold">Active Session</span>
+                      )}
                     </div>
                     <div className="flex items-center justify-between text-lg">
                       <div className="flex-1 text-right pr-4">
@@ -386,7 +453,7 @@ function FifaTrackerPage() {
                     </div>
                   </div>
                 ))}
-                {matches?.length === 0 && (
+                {allMatches?.length === 0 && (
                   <div className="text-center py-20 text-muted-foreground">
                     <History className="mx-auto h-12 w-12 mb-4 opacity-20" />
                     Waiting for the first whistle...
@@ -399,6 +466,41 @@ function FifaTrackerPage() {
       </div>
     </div>
   );
+}
+
+function StatsTable({ stats, emptyMessage }: { stats: any[], emptyMessage: string }) {
+    return (
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Player</TableHead>
+                    <TableHead className="text-center">P</TableHead>
+                    <TableHead className="text-center">W-D-L</TableHead>
+                    <TableHead className="text-center">GD</TableHead>
+                    <TableHead className="text-right">Pts</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {stats.map((stat, idx) => (
+                    <TableRow key={stat.name} className={idx === 0 ? "bg-primary/10" : ""}>
+                        <TableCell className="font-bold flex items-center gap-2">
+                            {idx === 0 && <Trophy className="h-4 w-4 text-yellow-500" />}
+                            {stat.name}
+                        </TableCell>
+                        <TableCell className="text-center">{stat.wins + stat.draws + stat.losses}</TableCell>
+                        <TableCell className="text-center text-xs text-muted-foreground">{stat.wins}-{stat.draws}-{stat.losses}</TableCell>
+                        <TableCell className="text-center font-mono">{stat.gf - stat.ga}</TableCell>
+                        <TableCell className="text-right font-bold text-primary">{stat.points}</TableCell>
+                    </TableRow>
+                ))}
+                {stats.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">{emptyMessage}</TableCell>
+                    </TableRow>
+                )}
+            </TableBody>
+        </Table>
+    );
 }
 
 export default function GuardedFifaTrackerPage() {
