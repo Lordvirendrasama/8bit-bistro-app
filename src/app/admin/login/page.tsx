@@ -7,7 +7,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
 } from "firebase/auth";
-import { useAuth as useFirebaseAuth, useFirestore } from "@/firebase";
+import { useAuth as useFirebaseAuth } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import {
   Card,
@@ -25,8 +25,11 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const auth = useFirebaseAuth();
   const { toast } = useToast();
+  
+  // These are the pre-filled credentials
   const [email, setEmail] = useState("admin@8bit.com");
   const [password, setPassword] = useState("password");
+  
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: FormEvent) => {
@@ -39,14 +42,7 @@ export default function AdminLoginPage() {
       });
       return;
     }
-    if (password.length < 6) {
-      toast({
-        variant: "destructive",
-        title: "Weak Password",
-        description: "Password must be at least 6 characters long.",
-      });
-      return;
-    }
+    
     setIsLoading(true);
     try {
       // First, try to sign in.
@@ -59,30 +55,25 @@ export default function AdminLoginPage() {
       });
       router.replace("/admin/dashboard");
     } catch (signInError: any) {
-      // If sign-in fails because the user doesn't exist or password is wrong...
+      // If sign-in fails, try to create the user (this acts as a "reset/setup" if account doesn't exist)
       if (signInError.code === 'auth/invalid-credential' || signInError.code === 'auth/user-not-found' || signInError.code === 'auth/wrong-password') {
-        // ...try to create the user instead.
         try {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          // Force refresh the ID token to ensure claims are up-to-date for security rules.
           await userCredential.user.getIdToken(true);
 
           toast({
             title: "Account Created",
             description: "Successfully created your account and logged you in.",
           });
-          // Redirect to the dashboard. The AdminGuard will determine access.
           router.replace("/admin/dashboard");
         } catch (signUpError: any) {
-          // This path is expected if the user exists but the password was wrong on the initial sign-in attempt.
           if (signUpError.code === 'auth/email-already-in-use') {
             toast({
               variant: "destructive",
               title: "Login Failed",
-              description: "Invalid credentials. Please check your email and password.",
+              description: "Invalid credentials. If you forgot your password, please reset it in the Firebase Console.",
             });
           } else {
-            // Handle other, unexpected sign-up errors.
             console.error("Admin sign-up fallback error:", signUpError);
             toast({
               variant: "destructive",
@@ -92,7 +83,6 @@ export default function AdminLoginPage() {
           }
         }
       } else {
-        // Handle other specific sign-in errors (e.g., network issues)
         console.error("Admin login error:", signInError);
         toast({
           variant: "destructive",
