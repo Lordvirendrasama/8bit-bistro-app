@@ -30,7 +30,7 @@ function HomePageContent() {
     {
       href: "/fifa-tracker",
       title: "FIFA Match Tracker",
-      description: "Record FIFA matches and track player stats.",
+      description: "Record FIFA 25 matches and track player stats.",
       icon: <PixelFifaIcon className="w-16 h-16 mb-4" />,
     },
     {
