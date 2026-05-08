@@ -60,7 +60,7 @@ export default function AdminLoginPage() {
       router.replace("/admin/dashboard");
     } catch (signInError: any) {
       // If sign-in fails because the user doesn't exist or password is wrong...
-      if (signInError.code === 'auth/invalid-credential' || signInError.code === 'auth/user-not-found') {
+      if (signInError.code === 'auth/invalid-credential' || signInError.code === 'auth/user-not-found' || signInError.code === 'auth/wrong-password') {
         // ...try to create the user instead.
         try {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
