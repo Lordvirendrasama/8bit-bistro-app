@@ -1,3 +1,4 @@
+
 # The 8Bit Bistro - Retro Arcade Event App
 
 This is a NextJS application built for The 8Bit Bistro to manage high scores, leaderboards, and FIFA match tracking.
