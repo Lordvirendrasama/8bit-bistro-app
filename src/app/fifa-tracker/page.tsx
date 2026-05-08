@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { useAuth } from "@/hooks/use-auth";
-import { collection, query, orderBy, addDoc, serverTimestamp, updateDoc, doc, limit, deleteDoc } from "firebase/firestore";
+import { collection, query, orderBy, addDoc, serverTimestamp, updateDoc, doc, limit, deleteDoc, getDocs, where } from "firebase/firestore";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import { usePlayers } from "@/lib/hooks/use-players";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Loader2, Trophy, History, UserPlus, PlayCircle, StopCircle, Calendar, MoreVertical, Edit, Trash2 } from "lucide-react";
+import { Loader2, Trophy, History, UserPlus, PlayCircle, StopCircle, Calendar, MoreVertical, Edit, Trash2, Users } from "lucide-react";
 import type { Player, FifaMatch, FifaSession } from "@/types";
 import { format, formatDistanceToNow } from "date-fns";
 import {
@@ -33,6 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 
 function FifaTrackerPage() {
   const firestore = useFirestore();
@@ -51,6 +52,58 @@ function FifaTrackerPage() {
   const [player2Score, setPlayer2Score] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Session Management
+  const [isSessionActionLoading, setIsSessionActionLoading] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+
+  // Fetch all active sessions (up to 4)
+  const activeSessionsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "fifaSessions"), where("endTime", "==", null), orderBy("startTime", "desc"), limit(4));
+  }, [firestore]);
+  const { data: activeSessions } = useCollection<FifaSession>(activeSessionsQuery);
+
+  // Fetch all matches
+  const matchesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "fifaMatches"), orderBy("timestamp", "desc"));
+  }, [firestore]);
+  const { data: allMatches, isLoading: matchesLoading } = useCollection<FifaMatch>(matchesQuery);
+
+  // Automatically select the first active session if none selected
+  useEffect(() => {
+    if (activeSessions && activeSessions.length > 0 && !activeSessionId) {
+      setActiveSessionId(activeSessions[0].id);
+    } else if (activeSessions && activeSessions.length === 0) {
+      setActiveSessionId(null);
+    }
+  }, [activeSessions, activeSessionId]);
+
+  const activeSession = activeSessions?.find(s => s.id === activeSessionId) || null;
+
+  // Player Memory: Get players who have played in the current active session
+  const sessionPlayerIds = useMemo(() => {
+    if (!activeSessionId || !allMatches) return new Set<string>();
+    const ids = new Set<string>();
+    allMatches
+      .filter(m => m.sessionId === activeSessionId)
+      .forEach(m => {
+        ids.add(m.player1Id);
+        if (m.player1bId) ids.add(m.player1bId);
+        ids.add(m.player2Id);
+        if (m.player2bId) ids.add(m.player2bId);
+      });
+    return ids;
+  }, [allMatches, activeSessionId]);
+
+  const sessionPlayers = useMemo(() => {
+    return players.filter(p => sessionPlayerIds.has(p.id));
+  }, [players, sessionPlayerIds]);
+
+  const otherPlayers = useMemo(() => {
+    return players.filter(p => !sessionPlayerIds.has(p.id));
+  }, [players, sessionPlayerIds]);
+
   // Edit Match State
   const [editingMatch, setEditingMatch] = useState<FifaMatch | null>(null);
   const [editScore1, setEditScore1] = useState("");
@@ -63,32 +116,27 @@ function FifaTrackerPage() {
   const [newPlayerInstagram, setNewPlayerInstagram] = useState("");
   const [isAddingPlayer, setIsAddingPlayer] = useState(false);
 
-  // Session Management
-  const [isSessionActionLoading, setIsSessionActionLoading] = useState(false);
-  const sessionsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, "fifaSessions"), orderBy("startTime", "desc"), limit(1));
-  }, [firestore]);
-  const { data: latestSessions } = useCollection<FifaSession>(sessionsQuery);
-  const activeSession = latestSessions?.find(s => !s.endTime) || null;
-
-  const matchesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, "fifaMatches"), orderBy("timestamp", "desc"));
-  }, [firestore]);
-  const { data: allMatches, isLoading: matchesLoading } = useCollection<FifaMatch>(matchesQuery);
-
   const handleStartSession = async () => {
     if (!firestore || !user) return;
+    if (activeSessions && activeSessions.length >= 4) {
+      toast({ variant: "destructive", title: "Limit Reached", description: "You can only have 4 simultaneous active sessions." });
+      return;
+    }
+
     setIsSessionActionLoading(true);
     try {
-      await addDoc(collection(firestore, "fifaSessions"), {
-        name: `Session - ${format(new Date(), "PPp")}`,
+      // Find total count to name it "8 Bit Session X"
+      const allSessionsSnap = await getDocs(collection(firestore, "fifaSessions"));
+      const nextNumber = allSessionsSnap.size + 1;
+      
+      const newSessionRef = await addDoc(collection(firestore, "fifaSessions"), {
+        name: `8 Bit Session ${nextNumber}`,
         startTime: serverTimestamp(),
         endTime: null,
         createdBy: user.uid
       });
-      toast({ title: "Session Started", description: "All matches recorded will now be linked to this session." });
+      setActiveSessionId(newSessionRef.id);
+      toast({ title: "Session Started", description: `"${`8 Bit Session ${nextNumber}`}" is now active.` });
     } catch (error) {
       console.error(error);
       toast({ variant: "destructive", title: "Error", description: "Failed to start session." });
@@ -97,14 +145,17 @@ function FifaTrackerPage() {
     }
   };
 
-  const handleEndSession = async () => {
-    if (!firestore || !activeSession) return;
+  const handleEndSession = async (sessionId: string) => {
+    if (!firestore) return;
     setIsSessionActionLoading(true);
     try {
-      await updateDoc(doc(firestore, "fifaSessions", activeSession.id), {
+      await updateDoc(doc(firestore, "fifaSessions", sessionId), {
         endTime: serverTimestamp()
       });
-      toast({ title: "Session Ended", description: "The current competition is now finalized." });
+      toast({ title: "Session Ended", description: "Competition finalized." });
+      if (activeSessionId === sessionId) {
+          setActiveSessionId(null);
+      }
     } catch (error) {
       console.error(error);
       toast({ variant: "destructive", title: "Error", description: "Failed to end session." });
@@ -144,7 +195,7 @@ function FifaTrackerPage() {
       return;
     }
 
-    if (player1Id === player2Id || (player1bId && player1bId === player2Id) || (player2bId && player2bId === player1Id)) {
+    if (player1Id === player2Id) {
       toast({ variant: "destructive", title: "Invalid Match", description: "A player cannot play against themselves." });
       return;
     }
@@ -157,7 +208,7 @@ function FifaTrackerPage() {
 
     try {
       await addDoc(collection(firestore, "fifaMatches"), {
-        sessionId: activeSession?.id || null,
+        sessionId: activeSessionId || null,
         player1Id,
         player1Name: p1?.name || "Unknown",
         player1bId: p1b?.id || null,
@@ -232,7 +283,6 @@ function FifaTrackerPage() {
       const team2 = [{ id: m.player2Id, name: m.player2Name }];
       if (m.player2bId) team2.push({ id: m.player2bId, name: m.player2bName! });
 
-      // Process Team 1 Players
       team1.forEach(p => {
         if (!stats[p.id]) stats[p.id] = { name: p.name, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0, points: 0 };
         stats[p.id].gf += m.player1Score;
@@ -248,7 +298,6 @@ function FifaTrackerPage() {
         }
       });
 
-      // Process Team 2 Players
       team2.forEach(p => {
         if (!stats[p.id]) stats[p.id] = { name: p.name, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0, points: 0 };
         stats[p.id].gf += m.player2Score;
@@ -270,9 +319,9 @@ function FifaTrackerPage() {
 
   const globalStats = useMemo(() => calculateStats(allMatches || []), [allMatches]);
   const sessionStats = useMemo(() => {
-      if (!activeSession || !allMatches) return [];
-      return calculateStats(allMatches.filter(m => m.sessionId === activeSession.id));
-  }, [allMatches, activeSession]);
+      if (!activeSessionId || !allMatches) return [];
+      return calculateStats(allMatches.filter(m => m.sessionId === activeSessionId));
+  }, [allMatches, activeSessionId]);
 
   if (playersLoading || matchesLoading) {
     return (
@@ -282,45 +331,72 @@ function FifaTrackerPage() {
     );
   }
 
+  const PlayerSelect = ({ id, value, onValueChange, placeholder }: { id: string, value: string, onValueChange: (v: string) => void, placeholder: string }) => (
+    <Select onValueChange={onValueChange} value={value}>
+      <SelectTrigger>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {sessionPlayers.length > 0 && (
+          <div className="p-2 text-[10px] font-bold text-primary uppercase tracking-wider bg-primary/5">In-Session Players</div>
+        )}
+        {sessionPlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+        {otherPlayers.length > 0 && sessionPlayers.length > 0 && (
+          <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider border-t">Other Players</div>
+        )}
+        {otherPlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
+
   return (
     <div className="container mx-auto p-4 pt-10 max-w-6xl">
-      {/* Session Banner */}
-      <Card className="mb-8 border-2 border-primary/40 bg-primary/5">
-          <CardContent className="flex flex-col md:flex-row items-center justify-between p-6 gap-4">
-              <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-full ${activeSession ? 'bg-green-500/20 text-green-500' : 'bg-muted text-muted-foreground'}`}>
-                      <PlayCircle className="h-6 w-6" />
-                  </div>
-                  <div>
-                      <h2 className="text-xl font-headline">{activeSession ? 'Active Session' : 'No Active Session'}</h2>
-                      <p className="text-sm text-muted-foreground">
-                          {activeSession ? (
-                            activeSession.startTime ? (
-                              `Started ${formatDistanceToNow(activeSession.startTime.toDate())} ago`
-                            ) : (
-                              'Starting session...'
-                            )
-                          ) : (
-                            'Start a session to track current play separately.'
-                          )}
-                      </p>
-                  </div>
-              </div>
-              <div className="flex items-center gap-2">
-                  {activeSession ? (
-                      <Button variant="destructive" onClick={handleEndSession} disabled={isSessionActionLoading}>
-                          {isSessionActionLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <StopCircle className="mr-2 h-4 w-4" />}
-                          End Session
-                      </Button>
-                  ) : (
-                      <Button onClick={handleStartSession} disabled={isSessionActionLoading}>
-                          {isSessionActionLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <PlayCircle className="mr-2 h-4 w-4" />}
-                          Start Session
-                      </Button>
-                  )}
-              </div>
-          </CardContent>
-      </Card>
+      {/* Session Management */}
+      <div className="mb-8 space-y-4">
+        <div className="flex items-center justify-between">
+            <h2 className="font-headline text-2xl flex items-center gap-2">
+                <PlayCircle className="text-primary" /> Active Sessions
+            </h2>
+            {(!activeSessions || activeSessions.length < 4) && (
+                <Button onClick={handleStartSession} disabled={isSessionActionLoading} size="sm">
+                    {isSessionActionLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <PlayCircle className="mr-2 h-4 w-4" />}
+                    Start New Session
+                </Button>
+            )}
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {activeSessions?.map(s => (
+                <Card key={s.id} className={`cursor-pointer transition-all border-2 ${activeSessionId === s.id ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-muted hover:border-primary/50'}`} onClick={() => setActiveSessionId(s.id)}>
+                    <CardContent className="p-4 flex flex-col justify-between h-full">
+                        <div className="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 className="font-bold text-lg">{s.name}</h3>
+                                <p className="text-[10px] text-muted-foreground">
+                                    {s.startTime ? `Started ${formatDistanceToNow(s.startTime.toDate())} ago` : 'Starting...'}
+                                </p>
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); handleEndSession(s.id); }}>
+                                <StopCircle className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] text-primary font-bold">
+                            <Users className="h-3 w-3" />
+                            {allMatches?.filter(m => m.sessionId === s.id).length || 0} Matches
+                        </div>
+                    </CardContent>
+                </Card>
+            ))}
+            {(!activeSessions || activeSessions.length === 0) && (
+                <Card className="col-span-full border-dashed border-2 p-8 text-center bg-muted/20">
+                    <p className="text-muted-foreground mb-4">No active sessions found. Start one to begin tracking.</p>
+                    <Button onClick={handleStartSession} disabled={isSessionActionLoading}>
+                        Start First Session
+                    </Button>
+                </Card>
+            )}
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Match Recording Form */}
@@ -330,9 +406,9 @@ function FifaTrackerPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="font-headline text-3xl flex items-center gap-2">
-                    <Trophy className="text-primary" /> New Match
+                    <Trophy className="text-primary" /> {activeSession ? activeSession.name : 'New Match'}
                   </CardTitle>
-                  <CardDescription>Enter match results for FIFA 25.</CardDescription>
+                  <CardDescription>Enter match results for the current session.</CardDescription>
                 </div>
                 <Dialog open={isAddPlayerOpen} onOpenChange={setIsAddPlayerOpen}>
                   <DialogTrigger asChild>
@@ -348,22 +424,11 @@ function FifaTrackerPage() {
                     <form onSubmit={handleAddPlayer} className="space-y-4 pt-4">
                       <div className="space-y-2">
                         <Label htmlFor="playerName">Full Name</Label>
-                        <Input 
-                          id="playerName" 
-                          placeholder="e.g. Cristiano Ronaldo" 
-                          value={newPlayerName} 
-                          onChange={e => setNewPlayerName(e.target.value)}
-                          required
-                        />
+                        <Input id="playerName" placeholder="e.g. Cristiano Ronaldo" value={newPlayerName} onChange={e => setNewPlayerName(e.target.value)} required />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="playerInsta">Instagram (Optional)</Label>
-                        <Input 
-                          id="playerInsta" 
-                          placeholder="@handle" 
-                          value={newPlayerInstagram} 
-                          onChange={e => setNewPlayerInstagram(e.target.value)}
-                        />
+                        <Input id="playerInsta" placeholder="@handle" value={newPlayerInstagram} onChange={e => setNewPlayerInstagram(e.target.value)} />
                       </div>
                       <DialogFooter>
                         <Button type="submit" disabled={isAddingPlayer}>
@@ -376,65 +441,41 @@ function FifaTrackerPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Team 1 */}
-                  <div className="space-y-4 p-4 rounded-lg bg-primary/5 border border-primary/10">
-                    <Label className="text-primary font-bold">Team 1 (Home)</Label>
-                    <Select onValueChange={setPlayer1Id} value={player1Id}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Player 1" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {players.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Select onValueChange={setPlayer1bId} value={player1bId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Player 2 (Optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {players.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Input placeholder="Team (e.g. Real Madrid)" value={player1Team} onChange={e => setPlayer1Team(e.target.value)} />
-                    <Input type="number" placeholder="Goals" value={player1Score} onChange={e => setPlayer1Score(e.target.value)} className="text-2xl font-mono text-center" />
-                  </div>
-
-                  {/* Team 2 */}
-                  <div className="space-y-4 p-4 rounded-lg bg-accent/5 border border-accent/10">
-                    <Label className="text-accent font-bold">Team 2 (Away)</Label>
-                    <Select onValueChange={setPlayer2Id} value={player2Id}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Player 1" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {players.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Select onValueChange={setPlayer2bId} value={player2bId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Player 2 (Optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {players.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Input placeholder="Team (e.g. Man City)" value={player2Team} onChange={e => setPlayer2Team(e.target.value)} />
-                    <Input type="number" placeholder="Goals" value={player2Score} onChange={e => setPlayer2Score(e.target.value)} className="text-2xl font-mono text-center" />
-                  </div>
+              {!activeSessionId ? (
+                <div className="text-center py-10 text-muted-foreground">
+                    Please select or start an active session to record a match.
                 </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Team 1 */}
+                    <div className="space-y-4 p-4 rounded-lg bg-primary/5 border border-primary/10">
+                      <Label className="text-primary font-bold">Team 1 (Home)</Label>
+                      <PlayerSelect id="p1" value={player1Id} onValueChange={setPlayer1Id} placeholder="Select Player 1" />
+                      <PlayerSelect id="p1b" value={player1bId} onValueChange={setPlayer1bId} placeholder="Select Player 2 (Optional)" />
+                      <Input placeholder="Team (e.g. Real Madrid)" value={player1Team} onChange={e => setPlayer1Team(e.target.value)} />
+                      <Input type="number" placeholder="Goals" value={player1Score} onChange={e => setPlayer1Score(e.target.value)} className="text-2xl font-mono text-center" />
+                    </div>
 
-                <Button type="submit" className="w-full text-lg py-6" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : "Submit Match Result"}
-                </Button>
-              </form>
+                    {/* Team 2 */}
+                    <div className="space-y-4 p-4 rounded-lg bg-accent/5 border border-accent/10">
+                      <Label className="text-accent font-bold">Team 2 (Away)</Label>
+                      <PlayerSelect id="p2" value={player2Id} onValueChange={setPlayer2Id} placeholder="Select Player 1" />
+                      <PlayerSelect id="p2b" value={player2bId} onValueChange={setPlayer2bId} placeholder="Select Player 2 (Optional)" />
+                      <Input placeholder="Team (e.g. Man City)" value={player2Team} onChange={e => setPlayer2Team(e.target.value)} />
+                      <Input type="number" placeholder="Goals" value={player2Score} onChange={e => setPlayer2Score(e.target.value)} className="text-2xl font-mono text-center" />
+                    </div>
+                  </div>
+
+                  <Button type="submit" className="w-full text-lg py-6" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : "Submit Match Result"}
+                  </Button>
+                </form>
+              )}
             </CardContent>
           </Card>
 
-          {/* Leaderboard Tabs */}
+          {/* Leaderboard */}
           <Card className="border-2 border-primary/20">
             <CardHeader className="pb-0">
               <CardTitle className="font-headline text-2xl flex items-center gap-2">
@@ -444,11 +485,11 @@ function FifaTrackerPage() {
             <CardContent>
                 <Tabs defaultValue="session" className="w-full mt-4">
                     <TabsList className="grid w-full grid-cols-2 mb-4">
-                        <TabsTrigger value="session">Session</TabsTrigger>
+                        <TabsTrigger value="session">Current Session</TabsTrigger>
                         <TabsTrigger value="global">All-Time</TabsTrigger>
                     </TabsList>
                     <TabsContent value="session">
-                        <StatsTable stats={sessionStats} emptyMessage={activeSession ? "No matches in this session yet." : "No active session."} />
+                        <StatsTable stats={sessionStats} emptyMessage={activeSessionId ? "No matches in this session yet." : "Select an active session to see stats."} />
                     </TabsContent>
                     <TabsContent value="global">
                         <StatsTable stats={globalStats} emptyMessage="No matches recorded yet." />
@@ -476,8 +517,10 @@ function FifaTrackerPage() {
                         {match.timestamp ? formatDistanceToNow(match.timestamp.toDate(), { addSuffix: true }) : "Just now"}
                       </span>
                       <div className="flex items-center gap-2">
-                        {match.sessionId === activeSession?.id && (
-                            <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase font-bold">Active Session</span>
+                        {activeSessions?.find(s => s.id === match.sessionId) && (
+                            <Badge variant="secondary" className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase font-bold">
+                                {activeSessions.find(s => s.id === match.sessionId)?.name}
+                            </Badge>
                         )}
                         {isAdmin && (
                           <DropdownMenu>
