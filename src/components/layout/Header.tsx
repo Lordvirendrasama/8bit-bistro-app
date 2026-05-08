@@ -12,7 +12,7 @@ export default function Header() {
           <Logo className="h-32" />
         </Link>
         <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest opacity-40 -mt-2">
-          v1.1.0 Build
+          v1.1.1 Build
         </div>
       </div>
     </header>
