@@ -18,7 +18,7 @@ This is a NextJS application built for The 8Bit Bistro to manage high scores, le
 ## 🛠 Project Management
 
 ### Push to GitHub
-We've added a shortcut script to quickly sync your local changes with your GitHub repository:
+Sync your local changes with your GitHub repository:
 ```bash
 npm run push
 ```
